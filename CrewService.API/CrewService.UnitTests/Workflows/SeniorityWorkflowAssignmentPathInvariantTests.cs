@@ -68,7 +68,6 @@ public sealed class SeniorityWorkflowAssignmentPathInvariantTests : IDisposable
             new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
         var vacancySync = TestCallSheetVacancyProjectionSyncFactory.Create(_uowFactory);
         var requirementEvaluation = new RequirementEvaluationService(_uowFactory, []);
-        var departmentReassignment = new DepartmentReassignmentService(vacancySync);
         var repost = new VacancyRepostService(
             _uowFactory,
             new BulletinsService(
@@ -83,7 +82,6 @@ public sealed class SeniorityWorkflowAssignmentPathInvariantTests : IDisposable
         var crews = new CrewsAppService(
             _uowFactory,
             repost,
-            departmentReassignment,
             vacancySync,
             NullLogger<CrewsAppService>.Instance);
 
@@ -92,7 +90,6 @@ public sealed class SeniorityWorkflowAssignmentPathInvariantTests : IDisposable
             requirementEvaluation,
             new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
             repost,
-            departmentReassignment,
             notifications,
             vacancySync);
 

@@ -412,9 +412,9 @@
                 }
 
                 @* ── Administration ── *@
-                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/error-log", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules", "admin/department-reassignment-rules"))
+                @if (Permissions.HasAccessToAny("parents", "admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/error-log", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules"))
                 {
-                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/error-log", "parents", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules", "admin/department-reassignment-rules")">
+                    <NavMenuGroup Title="Administration" Icon="bi-gear-fill" IsInitiallyExpanded="@IsCurrentPath("admin/users", "admin/notifications", "admin/jobs", "admin/roles", "admin/permissions", "admin/audit-log", "admin/error-log", "parents", "admin/required-positions-strategies", "admin/workflow-templates", "admin/seniority-move-policies", "admin/no-access-policies", "admin/absence-approval-policy", "admin/call-sheet-rules")">
                         @if (Permissions.HasAccess("parents"))
                         {
                             <div class="nav-item">
@@ -524,14 +524,6 @@
                             <div class="nav-item">
                                 <NavLink class="nav-link" href="admin/call-sheet-rules">
                                     <span class="bi bi-clock-history" aria-hidden="true"></span> Call Sheet Rules
-                                </NavLink>
-                            </div>
-                        }
-                        @if (Permissions.HasAccess("admin/department-reassignment-rules"))
-                        {
-                            <div class="nav-item">
-                                <NavLink class="nav-link" href="admin/department-reassignment-rules">
-                                    <span class="bi bi-arrow-left-right" aria-hidden="true"></span> Department Reassignment Rules
                                 </NavLink>
                             </div>
                         }

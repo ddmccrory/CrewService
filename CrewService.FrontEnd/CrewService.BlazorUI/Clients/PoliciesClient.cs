@@ -161,32 +161,6 @@ public sealed class PoliciesClient(GrpcChannelProvider channelProvider, CircuitT
         catch (Exception ex) { LogException(ex); throw; }
     }
 
-    // ── Department Reassignment Rules ────────────────────────────────────
-
-    public async Task<DepartmentReassignmentRuleResponse?> GetDepartmentReassignmentRuleAsync(long departmentCtrlNbr)
-    {
-        try { return await _client.GetDepartmentReassignmentRuleAsync(new GetDepartmentReassignmentRuleRequest { DepartmentCtrlNbr = departmentCtrlNbr }); }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound) { return null; }
-        catch (Exception ex) { LogException(ex); throw; }
-    }
-
-    public async Task<DepartmentReassignmentRuleResponse> UpsertDepartmentReassignmentRuleAsync(
-        long departmentCtrlNbr,
-        string targetBoardType,
-        bool isRequired)
-    {
-        try
-        {
-            return await _client.UpsertDepartmentReassignmentRuleAsync(new UpsertDepartmentReassignmentRuleRequest
-            {
-                DepartmentCtrlNbr = departmentCtrlNbr,
-                TargetBoardType = targetBoardType,
-                IsRequired = isRequired
-            });
-        }
-        catch (Exception ex) { LogException(ex); throw; }
-    }
-
     // ── Seniority Move Policy ─────────────────────────────────────────
 
     /// <summary>

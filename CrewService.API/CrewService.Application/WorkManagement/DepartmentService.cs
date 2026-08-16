@@ -1,6 +1,5 @@
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Authorization;
-using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.WorkManagement;
@@ -112,13 +111,6 @@ public sealed class DepartmentService(
             isEnabled: true);
 
         await uow.CallSheetRules.AddAsync(defaultRule);
-
-        var defaultReassignmentRule = DepartmentReassignmentRule.Create(
-            department.CtrlNbr,
-            BoardType.Hangout,
-            isRequired: true);
-
-        await uow.DepartmentReassignmentRules.AddAsync(defaultReassignmentRule);
         await uow.CommitAsync();
         return department;
     }
