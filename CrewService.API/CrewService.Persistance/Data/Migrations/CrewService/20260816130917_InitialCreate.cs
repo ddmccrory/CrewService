@@ -36,34 +36,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
-                name: "AbsenceCodes",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    IsExcused = table.Column<bool>(type: "INTEGER", nullable: false),
-                    IsCompensated = table.Column<bool>(type: "INTEGER", nullable: false),
-                    RequiresApproval = table.Column<bool>(type: "INTEGER", nullable: false),
-                    IsSystemOnly = table.Column<bool>(type: "INTEGER", nullable: false),
-                    IsHolidayExempt = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DefaultAutoMarkUpHours = table.Column<decimal>(type: "TEXT", precision: 6, scale: 2, nullable: true),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AbsenceCodes", x => x.CtrlNbr);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AddressTypes",
                 columns: table => new
                 {
@@ -150,6 +122,41 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_EmploymentStatuses", x => x.CtrlNbr);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ErrorLogs",
+                columns: table => new
+                {
+                    ErrorId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    OccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    FirstOccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastOccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LoggedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ErrorKind = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    SourceApp = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    SourceLayer = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    Severity = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                    FingerprintHash = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    OccurrenceCount = table.Column<int>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                    ResolvedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ResolvedBy = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
+                    SuppressionReason = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    ErrorCode = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    ExceptionType = table.Column<string>(type: "TEXT", maxLength: 512, nullable: false),
+                    Message = table.Column<string>(type: "TEXT", maxLength: 4000, nullable: false),
+                    TraceId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
+                    Route = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
+                    Method = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    PerformedBy = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    ParentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    PayloadJson = table.Column<string>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ErrorLogs", x => x.ErrorId);
                 });
 
             migrationBuilder.CreateTable(
@@ -430,6 +437,94 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "WorkflowEffectTypes",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowEffectTypes", x => x.CtrlNbr);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkflowMetadataFieldTypes",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowMetadataFieldTypes", x => x.CtrlNbr);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkflowOperatorTypes",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowOperatorTypes", x => x.CtrlNbr);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkflowTriggerTypes",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowTriggerTypes", x => x.CtrlNbr);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Employees",
                 columns: table => new
                 {
@@ -462,6 +557,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Employees", x => x.CtrlNbr);
+                    table.CheckConstraint("CK_Employee_BirthDate_Required", "[BirthDate] > '1900-01-01T00:00:00.0000000'");
                     table.ForeignKey(
                         name: "FK_Employees_EmploymentStatuses_EmploymentStatusCtrlNbr",
                         column: x => x.EmploymentStatusCtrlNbr,
@@ -484,6 +580,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     ParentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
                     RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
                     TimeZoneId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
+                    WorkPeriodMode = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false, defaultValue: "HalfMonth"),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -706,6 +803,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     EmailTypeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     Email = table.Column<string>(type: "TEXT", maxLength: 250, nullable: false),
+                    IsPrimary = table.Column<bool>(type: "INTEGER", nullable: false),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -747,6 +845,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     SuspendedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
                     SuspensionReason = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     RevocationPeriodEndUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CancelledAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CancellationReason = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -1052,6 +1152,71 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         name: "FK_VoluntaryReferrals_Employees_EmployeeCtrlNbr",
                         column: x => x.EmployeeCtrlNbr,
                         principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AbsenceApprovalPolicies",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ApprovalLevel = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AutoMarkOffIfWithinHoursEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AutoMarkOffIfWithinHours = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceApprovalPolicies", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceApprovalPolicies_DynamicGroups_RailroadCtrlNbr",
+                        column: x => x.RailroadCtrlNbr,
+                        principalTable: "DynamicGroups",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AbsenceCodes",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    IsExcused = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsCompensated = table.Column<bool>(type: "INTEGER", nullable: false),
+                    RequiresApproval = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsSystemOnly = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsHolidayExempt = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DefaultAutoMarkUpHours = table.Column<decimal>(type: "TEXT", precision: 6, scale: 2, nullable: true),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceCodes", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceCodes_DynamicGroups_RailroadCtrlNbr",
+                        column: x => x.RailroadCtrlNbr,
+                        principalTable: "DynamicGroups",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -1371,6 +1536,42 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "NotificationTypeConfigs",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Key = table.Column<string>(type: "TEXT", maxLength: 80, nullable: false),
+                    DisplayName = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    RequiresAcknowledgementDefault = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Audience = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    SendInApp = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SendEmail = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SendText = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SendExternalApi = table.Column<bool>(type: "INTEGER", nullable: false),
+                    MessageTemplate = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_NotificationTypeConfigs", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_NotificationTypeConfigs_DynamicGroups_RailroadCtrlNbr",
+                        column: x => x.RailroadCtrlNbr,
+                        principalTable: "DynamicGroups",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PayrollTiers",
                 columns: table => new
                 {
@@ -1661,6 +1862,41 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "WorkflowTemplates",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    TriggerTypeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowTemplates", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_WorkflowTemplates_DynamicGroups_RailroadCtrlNbr",
+                        column: x => x.RailroadCtrlNbr,
+                        principalTable: "DynamicGroups",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WorkflowTemplates_WorkflowTriggerTypes_TriggerTypeCtrlNbr",
+                        column: x => x.TriggerTypeCtrlNbr,
+                        principalTable: "WorkflowTriggerTypes",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "WorkInstances",
                 columns: table => new
                 {
@@ -1729,48 +1965,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         principalTable: "GroupAttributeDefinitions",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SeniorityStateVacancyConfigs",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    ParentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    SeniorityStateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    VacancyAction = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    TargetBoardType = table.Column<string>(type: "TEXT", maxLength: 20, nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SeniorityStateVacancyConfigs", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_SeniorityStateVacancyConfigs_DynamicGroups_RailroadCtrlNbr",
-                        column: x => x.RailroadCtrlNbr,
-                        principalTable: "DynamicGroups",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_SeniorityStateVacancyConfigs_Parents_ParentCtrlNbr",
-                        column: x => x.ParentCtrlNbr,
-                        principalTable: "Parents",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_SeniorityStateVacancyConfigs_SeniorityStates_SeniorityStateCtrlNbr",
-                        column: x => x.SeniorityStateCtrlNbr,
-                        principalTable: "SeniorityStates",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -1988,6 +2182,69 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "AbsenceRequests",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ScheduledStartUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ScheduledEndUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ReasonCode = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    ApprovedByCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    ApprovedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeniedByCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    DeniedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CancelledByCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    CancelledAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Notes = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    AbsenceCodeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    IsSystemGenerated = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AutoMarkOffOnApproval = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceRequests", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequests_AbsenceCodes_AbsenceCodeCtrlNbr",
+                        column: x => x.AbsenceCodeCtrlNbr,
+                        principalTable: "AbsenceCodes",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequests_Employees_ApprovedByCtrlNbr",
+                        column: x => x.ApprovedByCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequests_Employees_CancelledByCtrlNbr",
+                        column: x => x.CancelledByCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequests_Employees_DeniedByCtrlNbr",
+                        column: x => x.DeniedByCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequests_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Assignments",
                 columns: table => new
                 {
@@ -2022,6 +2279,38 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         principalTable: "DynamicGroups",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CallSheetRule",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    DepartmentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CallLeadMinutes = table.Column<int>(type: "INTEGER", nullable: false),
+                    CallDurationMinutes = table.Column<int>(type: "INTEGER", nullable: false),
+                    HolidayAdjustment = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    HolidayCustomOffsetMinutes = table.Column<int>(type: "INTEGER", nullable: true),
+                    GlobalPreCreateOffsetMinutes = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CallSheetRule", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_CallSheetRule_Department_DepartmentCtrlNbr",
+                        column: x => x.DepartmentCtrlNbr,
+                        principalTable: "Department",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -2064,7 +2353,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.DepartmentCtrlNbr,
                         principalTable: "Department",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Crafts_DynamicGroups_DynamicGroupCtrlNbr",
                         column: x => x.DynamicGroupCtrlNbr,
@@ -2118,6 +2407,61 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "DepartmentAbsenceRequestWindowPolicy",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    DepartmentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RequestWindowCapDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DepartmentAbsenceRequestWindowPolicy", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_DepartmentAbsenceRequestWindowPolicy_Department_DepartmentCtrlNbr",
+                        column: x => x.DepartmentCtrlNbr,
+                        principalTable: "Department",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DepartmentReassignmentRules",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    DepartmentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    TargetBoardType = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    IsRequired = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DepartmentReassignmentRules", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_DepartmentReassignmentRules_Department_DepartmentCtrlNbr",
+                        column: x => x.DepartmentCtrlNbr,
+                        principalTable: "Department",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "NotificationAcknowledgements",
                 columns: table => new
                 {
@@ -2146,6 +2490,44 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         principalTable: "EmployeeNotifications",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PositionChangeRecords",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeNotificationCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    SourceType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    SourceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    ChangeType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    Message = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
+                    EffectiveAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    RequiresAcknowledgement = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsOpen = table.Column<bool>(type: "INTEGER", nullable: false),
+                    OpenedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ClosedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ClosedReason = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PositionChangeRecords", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_PositionChangeRecords_EmployeeNotifications_EmployeeNotificationCtrlNbr",
+                        column: x => x.EmployeeNotificationCtrlNbr,
+                        principalTable: "EmployeeNotifications",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -2283,6 +2665,38 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "WorkflowVersions",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WorkflowTemplateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    VersionNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    DefinitionJson = table.Column<string>(type: "TEXT", nullable: false),
+                    Notes = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: false),
+                    SavedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    PublishedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowVersions", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_WorkflowVersions_WorkflowTemplates_WorkflowTemplateCtrlNbr",
+                        column: x => x.WorkflowTemplateCtrlNbr,
+                        principalTable: "WorkflowTemplates",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ShiftInstances",
                 columns: table => new
                 {
@@ -2291,7 +2705,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     ShiftDefinitionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     ShiftCode = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
                     ShiftDisplayName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    DepartmentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    DepartmentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     DepartmentName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
                     Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
                     IsComplete = table.Column<bool>(type: "INTEGER", nullable: false),
@@ -2314,6 +2728,61 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         principalTable: "WorkInstances",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AbsenceEndRecords",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    AbsenceRequestCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ActualEndUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IsAutoEndRecord = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceEndRecords", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceEndRecords_AbsenceRequests_AbsenceRequestCtrlNbr",
+                        column: x => x.AbsenceRequestCtrlNbr,
+                        principalTable: "AbsenceRequests",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AbsenceStartRecords",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    AbsenceRequestCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ActualStartUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceStartRecords", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceStartRecords_AbsenceRequests_AbsenceRequestCtrlNbr",
+                        column: x => x.AbsenceRequestCtrlNbr,
+                        principalTable: "AbsenceRequests",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -2387,6 +2856,89 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "AbsenceRequestWaitListRecord",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    AbsenceCodeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RequestDateUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EntryUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    WaitListType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    DepartmentCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    AssignedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    AssignmentNotes = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceRequestWaitListRecord", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequestWaitListRecord_AbsenceCodes_AbsenceCodeCtrlNbr",
+                        column: x => x.AbsenceCodeCtrlNbr,
+                        principalTable: "AbsenceCodes",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequestWaitListRecord_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequestWaitListRecord_Department_DepartmentCtrlNbr",
+                        column: x => x.DepartmentCtrlNbr,
+                        principalTable: "Department",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AbsenceRequestWaitListRecord_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AbsenceWaitListAllowancePolicy",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WaitListType = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    AllowanceCode = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
+                    CalendarYear = table.Column<int>(type: "INTEGER", nullable: false),
+                    MaxAssignments = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AbsenceWaitListAllowancePolicy", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_AbsenceWaitListAllowancePolicy_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "BoardCascadePolicies",
                 columns: table => new
                 {
@@ -2415,7 +2967,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_BoardCascadePolicies_DynamicGroups_WorkAreaGroupCtrlNbr",
                         column: x => x.WorkAreaGroupCtrlNbr,
@@ -2450,7 +3002,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -2467,6 +3019,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     EffectiveTime = table.Column<TimeSpan>(type: "TEXT", nullable: false),
                     ForceAssignHours = table.Column<int>(type: "INTEGER", nullable: false),
                     ForceAssignSelectionMode = table.Column<string>(type: "TEXT", nullable: false),
+                    EffectiveTimeMode = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false, defaultValue: "FixedEffectiveTime"),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -2481,6 +3034,63 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     table.PrimaryKey("PK_BulletinRules", x => x.CtrlNbr);
                     table.ForeignKey(
                         name: "FK_BulletinRules_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CraftAbsenceWaitListPolicy",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CompensableDayMaxAssignments = table.Column<int>(type: "INTEGER", nullable: false),
+                    VacationWeekMaxAssignments = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CraftAbsenceWaitListPolicy", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_CraftAbsenceWaitListPolicy_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CraftCallSheetRules",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    PreOnDutyChangeCutoffMinutes = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CraftCallSheetRules", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_CraftCallSheetRules_Crafts_CraftCtrlNbr",
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
@@ -2514,7 +3124,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -2546,7 +3156,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -2573,7 +3183,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_CraftRegulatoryQualifications_RegulatoryQualifications_RegulatoryQualificationCtrlNbr",
                         column: x => x.RegulatoryQualificationCtrlNbr,
@@ -2617,36 +3227,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
-                name: "CraftRoles",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    AlternateName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    HierarchyLevel = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_CraftRoles", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_CraftRoles_Crafts_CraftCtrlNbr",
-                        column: x => x.CraftCtrlNbr,
-                        principalTable: "Crafts",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "DisplacementCases",
                 columns: table => new
                 {
@@ -2673,7 +3253,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_DisplacementCases_Employees_EmployeeCtrlNbr",
                         column: x => x.EmployeeCtrlNbr,
@@ -2709,13 +3289,58 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_HolidayQualificationRules_Holidays_HolidayCtrlNbr",
                         column: x => x.HolidayCtrlNbr,
                         principalTable: "Holidays",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "NoAccessPolicies",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AllowEmployeeSelfRequest = table.Column<bool>(type: "INTEGER", nullable: false),
+                    RequireBulletinAccessAudit = table.Column<bool>(type: "INTEGER", nullable: false),
+                    BlockIfOnExtendedAbsence = table.Column<bool>(type: "INTEGER", nullable: false),
+                    RequirePositionCurrentlyAssigned = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ApplyExtraBoardSpecialCase = table.Column<bool>(type: "INTEGER", nullable: false),
+                    RequireBoardAvailableForMoveOff = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AutoApproveNoAccess = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AllowAdminOverride = table.Column<bool>(type: "INTEGER", nullable: false),
+                    BlockIfEmployeeMarkedOff = table.Column<bool>(type: "INTEGER", nullable: false),
+                    BlockIfLastVacatedIncumbent = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DefaultEffectiveMode = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_NoAccessPolicies", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_NoAccessPolicies_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_NoAccessPolicies_DynamicGroups_RailroadCtrlNbr",
+                        column: x => x.RailroadCtrlNbr,
+                        principalTable: "DynamicGroups",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -2845,7 +3470,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_QualificationTypes_DynamicGroups_ScopeGroupCtrlNbr",
                         column: x => x.ScopeGroupCtrlNbr,
@@ -2895,7 +3520,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Rosters_DynamicGroups_WorkAreaGroupCtrlNbr",
                         column: x => x.WorkAreaGroupCtrlNbr,
@@ -2911,11 +3536,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
                     RequestHours = table.Column<int>(type: "INTEGER", nullable: false),
                     CancelHours = table.Column<int>(type: "INTEGER", nullable: false),
                     WillWorkEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
                     AutoApprove = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AllowScheduledHangoutMoves = table.Column<bool>(type: "INTEGER", nullable: false),
                     CrewToCrewStrategy = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     CrewToBoardStrategy = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     ExtraBoardToCrewStrategy = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
@@ -2923,6 +3548,13 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     ExtendedAbsenceToCrewStrategy = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     TrainingToCrewStrategy = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     NewHireToCrewStrategy = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    CrewToCrewEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    CrewToBoardEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    ExtraBoardToCrewEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    HangoutToCrewEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    ExtendedAbsenceToCrewEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    TrainingToCrewEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    NewHireToCrewEligibilityDays = table.Column<int>(type: "INTEGER", nullable: false),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -2940,7 +3572,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_SeniorityMovePolicies_DynamicGroups_RailroadCtrlNbr",
                         column: x => x.RailroadCtrlNbr,
@@ -2984,7 +3616,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.CraftCtrlNbr,
                         principalTable: "Crafts",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_SeniorityMoves_DynamicGroups_RailroadCtrlNbr",
                         column: x => x.RailroadCtrlNbr,
@@ -3077,6 +3709,54 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "WorkflowExecutionHistories",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WorkflowTemplateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WorkflowVersionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WorkflowVersionNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    RailroadCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    TriggerTypeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    AggregateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    CorrelationId = table.Column<string>(type: "TEXT", maxLength: 128, nullable: true),
+                    StartedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    CompletedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    DetailsJson = table.Column<string>(type: "TEXT", nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowExecutionHistories", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_WorkflowExecutionHistories_WorkflowTemplates_WorkflowTemplateCtrlNbr",
+                        column: x => x.WorkflowTemplateCtrlNbr,
+                        principalTable: "WorkflowTemplates",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_WorkflowExecutionHistories_WorkflowTriggerTypes_TriggerTypeCtrlNbr",
+                        column: x => x.TriggerTypeCtrlNbr,
+                        principalTable: "WorkflowTriggerTypes",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WorkflowExecutionHistories_WorkflowVersions_WorkflowVersionCtrlNbr",
+                        column: x => x.WorkflowVersionCtrlNbr,
+                        principalTable: "WorkflowVersions",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "AssignmentNote",
                 columns: table => new
                 {
@@ -3143,14 +3823,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
-                name: "CrewPositions",
+                name: "AbsenceRequestWaitListLink",
                 columns: table => new
                 {
                     CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CrewCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    StaffablePositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    DisplayOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                    AbsenceRequestCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    AbsenceRequestWaitListRecordCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -3162,103 +3840,19 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_CrewPositions", x => x.CtrlNbr);
+                    table.PrimaryKey("PK_AbsenceRequestWaitListLink", x => x.CtrlNbr);
                     table.ForeignKey(
-                        name: "FK_CrewPositions_CraftRoles_CraftRoleCtrlNbr",
-                        column: x => x.CraftRoleCtrlNbr,
-                        principalTable: "CraftRoles",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_CrewPositions_Crews_CrewCtrlNbr",
-                        column: x => x.CrewCtrlNbr,
-                        principalTable: "Crews",
+                        name: "FK_AbsenceRequestWaitListLink_AbsenceRequestWaitListRecord_AbsenceRequestWaitListRecordCtrlNbr",
+                        column: x => x.AbsenceRequestWaitListRecordCtrlNbr,
+                        principalTable: "AbsenceRequestWaitListRecord",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_CrewPositions_StaffablePositions_StaffablePositionCtrlNbr",
-                        column: x => x.StaffablePositionCtrlNbr,
-                        principalTable: "StaffablePositions",
+                        name: "FK_AbsenceRequestWaitListLink_AbsenceRequests_AbsenceRequestCtrlNbr",
+                        column: x => x.AbsenceRequestCtrlNbr,
+                        principalTable: "AbsenceRequests",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PayRates",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EffectiveDate = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    HourlyRate = table.Column<decimal>(type: "TEXT", precision: 10, scale: 4, nullable: false),
-                    OvertimeMultiplier = table.Column<decimal>(type: "TEXT", precision: 5, scale: 2, nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PayRates", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_PayRates_CraftRoles_CraftRoleCtrlNbr",
-                        column: x => x.CraftRoleCtrlNbr,
-                        principalTable: "CraftRoles",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PayRates_Crafts_CraftCtrlNbr",
-                        column: x => x.CraftCtrlNbr,
-                        principalTable: "Crafts",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PositionSlots",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    WorkInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    BoundEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    BindingSource = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PositionSlots", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_PositionSlots_CraftRoles_CraftRoleCtrlNbr",
-                        column: x => x.CraftRoleCtrlNbr,
-                        principalTable: "CraftRoles",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PositionSlots_Employees_BoundEmployeeCtrlNbr",
-                        column: x => x.BoundEmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PositionSlots_WorkInstances_WorkInstanceCtrlNbr",
-                        column: x => x.WorkInstanceCtrlNbr,
-                        principalTable: "WorkInstances",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -3340,39 +3934,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         name: "FK_Bulletins_PositionVacancies_PositionVacancyCtrlNbr",
                         column: x => x.PositionVacancyCtrlNbr,
                         principalTable: "PositionVacancies",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "CraftRoleQualifications",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    QualificationTypeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_CraftRoleQualifications", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_CraftRoleQualifications_CraftRoles_CraftRoleCtrlNbr",
-                        column: x => x.CraftRoleCtrlNbr,
-                        principalTable: "CraftRoles",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_CraftRoleQualifications_QualificationTypes_QualificationTypeCtrlNbr",
-                        column: x => x.QualificationTypeCtrlNbr,
-                        principalTable: "QualificationTypes",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -3517,6 +4078,8 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     AllowBulletinBidding = table.Column<bool>(type: "INTEGER", nullable: false),
                     AllowSeniorityMove = table.Column<bool>(type: "INTEGER", nullable: false),
                     AllowForceAssign = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
+                    NotifyOnPlacement = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
+                    PlacementRequiresAcknowledgement = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -3546,7 +4109,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.RosterCtrlNbr,
                         principalTable: "Rosters",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -3561,6 +4124,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     Rank = table.Column<int>(type: "INTEGER", nullable: false),
                     SeniorityStateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     CanTrain = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SeniorityEndDate = table.Column<DateTime>(type: "TEXT", nullable: true),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -3584,13 +4148,464 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         column: x => x.RosterCtrlNbr,
                         principalTable: "Rosters",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Seniority_SeniorityStates_SeniorityStateCtrlNbr",
                         column: x => x.SeniorityStateCtrlNbr,
                         principalTable: "SeniorityStates",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BulletinAccessAudits",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    BulletinCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ViewedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BulletinAccessAudits", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_BulletinAccessAudits_Bulletins_BulletinCtrlNbr",
+                        column: x => x.BulletinCtrlNbr,
+                        principalTable: "Bulletins",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_BulletinAccessAudits_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BulletinBids",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    BulletinCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Priority = table.Column<int>(type: "INTEGER", nullable: false),
+                    SubmittedUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    SeniorityDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    SeniorityRank = table.Column<int>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BulletinBids", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_BulletinBids_Bulletins_BulletinCtrlNbr",
+                        column: x => x.BulletinCtrlNbr,
+                        principalTable: "Bulletins",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_BulletinBids_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "QualificationEvidence",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeQualificationCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RequirementCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    EvidenceType = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    EvidenceValue = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    RecordedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    RecordedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_QualificationEvidence", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_QualificationEvidence_EmployeeQualifications_EmployeeQualificationCtrlNbr",
+                        column: x => x.EmployeeQualificationCtrlNbr,
+                        principalTable: "EmployeeQualifications",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_QualificationEvidence_QualificationRequirements_RequirementCtrlNbr",
+                        column: x => x.RequirementCtrlNbr,
+                        principalTable: "QualificationRequirements",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CraftRoles",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    AlternateName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
+                    DefaultRosterBoardCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    HierarchyLevel = table.Column<int>(type: "INTEGER", nullable: false, defaultValue: 0),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CraftRoles", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_CraftRoles_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_CraftRoles_RosterBoards_DefaultRosterBoardCtrlNbr",
+                        column: x => x.DefaultRosterBoardCtrlNbr,
+                        principalTable: "RosterBoards",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RosterBoardPositions",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RosterBoardCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    StaffablePositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    PositionOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                    TieUpOrderUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    OrderSeedBoardPosition = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RosterBoardPositions", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_RosterBoardPositions_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_RosterBoardPositions_RosterBoards_RosterBoardCtrlNbr",
+                        column: x => x.RosterBoardCtrlNbr,
+                        principalTable: "RosterBoards",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RosterBoardPositions_StaffablePositions_StaffablePositionCtrlNbr",
+                        column: x => x.StaffablePositionCtrlNbr,
+                        principalTable: "StaffablePositions",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PendingSeniorityStateChanges",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    SeniorityCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    FromSeniorityStateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ToSeniorityStateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EffectiveDateUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", nullable: false),
+                    ScheduledByUserId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    ScheduledAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ProcessedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CancelledByUserId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PendingSeniorityStateChanges", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_PendingSeniorityStateChanges_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PendingSeniorityStateChanges_SeniorityStates_FromSeniorityStateCtrlNbr",
+                        column: x => x.FromSeniorityStateCtrlNbr,
+                        principalTable: "SeniorityStates",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PendingSeniorityStateChanges_SeniorityStates_ToSeniorityStateCtrlNbr",
+                        column: x => x.ToSeniorityStateCtrlNbr,
+                        principalTable: "SeniorityStates",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PendingSeniorityStateChanges_Seniority_SeniorityCtrlNbr",
+                        column: x => x.SeniorityCtrlNbr,
+                        principalTable: "Seniority",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CraftRoleQualifications",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    QualificationTypeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CraftRoleQualifications", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_CraftRoleQualifications_CraftRoles_CraftRoleCtrlNbr",
+                        column: x => x.CraftRoleCtrlNbr,
+                        principalTable: "CraftRoles",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_CraftRoleQualifications_QualificationTypes_QualificationTypeCtrlNbr",
+                        column: x => x.QualificationTypeCtrlNbr,
+                        principalTable: "QualificationTypes",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CrewPositions",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CrewCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    StaffablePositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    DisplayOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CrewPositions", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_CrewPositions_CraftRoles_CraftRoleCtrlNbr",
+                        column: x => x.CraftRoleCtrlNbr,
+                        principalTable: "CraftRoles",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CrewPositions_Crews_CrewCtrlNbr",
+                        column: x => x.CrewCtrlNbr,
+                        principalTable: "Crews",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_CrewPositions_StaffablePositions_StaffablePositionCtrlNbr",
+                        column: x => x.StaffablePositionCtrlNbr,
+                        principalTable: "StaffablePositions",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PayRates",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    CraftCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EffectiveDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    HourlyRate = table.Column<decimal>(type: "TEXT", precision: 10, scale: 4, nullable: false),
+                    OvertimeMultiplier = table.Column<decimal>(type: "TEXT", precision: 5, scale: 2, nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayRates", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_PayRates_CraftRoles_CraftRoleCtrlNbr",
+                        column: x => x.CraftRoleCtrlNbr,
+                        principalTable: "CraftRoles",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PayRates_Crafts_CraftCtrlNbr",
+                        column: x => x.CraftCtrlNbr,
+                        principalTable: "Crafts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PositionSlots",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WorkInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    CraftRoleCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
+                    BoundEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    BindingSource = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PositionSlots", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_PositionSlots_CraftRoles_CraftRoleCtrlNbr",
+                        column: x => x.CraftRoleCtrlNbr,
+                        principalTable: "CraftRoles",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PositionSlots_Employees_BoundEmployeeCtrlNbr",
+                        column: x => x.BoundEmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PositionSlots_WorkInstances_WorkInstanceCtrlNbr",
+                        column: x => x.WorkInstanceCtrlNbr,
+                        principalTable: "WorkInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BoardSlotInstances",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ShiftInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RosterBoardCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RosterBoardPositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    BoardOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                    CallSequence = table.Column<long>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    BoardName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    EmployeeName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false, defaultValue: ""),
+                    PositionName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, defaultValue: ""),
+                    DaysWorked = table.Column<int>(type: "INTEGER", nullable: false),
+                    ConsecutiveDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    RestAvailableAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    TieUpAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BoardSlotInstances", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_BoardSlotInstances_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSlotInstances_RosterBoardPositions_RosterBoardPositionCtrlNbr",
+                        column: x => x.RosterBoardPositionCtrlNbr,
+                        principalTable: "RosterBoardPositions",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSlotInstances_RosterBoards_RosterBoardCtrlNbr",
+                        column: x => x.RosterBoardCtrlNbr,
+                        principalTable: "RosterBoards",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSlotInstances_ShiftInstances_ShiftInstanceCtrlNbr",
+                        column: x => x.ShiftInstanceCtrlNbr,
+                        principalTable: "ShiftInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -3688,213 +4703,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
-                name: "AbsenceRequests",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    StartUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EndUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ReasonCode = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    ApprovedByCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    Notes = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
-                    AbsenceCodeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    MarkOffStartUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsSystemGenerated = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AbsenceRequests", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_AbsenceRequests_AbsenceCodes_AbsenceCodeCtrlNbr",
-                        column: x => x.AbsenceCodeCtrlNbr,
-                        principalTable: "AbsenceCodes",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_AbsenceRequests_Employees_ApprovedByCtrlNbr",
-                        column: x => x.ApprovedByCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_AbsenceRequests_Employees_EmployeeCtrlNbr",
-                        column: x => x.EmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_AbsenceRequests_PositionSlots_PositionSlotCtrlNbr",
-                        column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DispatchDecisionLogs",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    AsOfUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Phase = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    SelectedEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    SelectionSource = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DecisionJson = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DispatchDecisionLogs", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_DispatchDecisionLogs_Employees_SelectedEmployeeCtrlNbr",
-                        column: x => x.SelectedEmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_DispatchDecisionLogs_PositionSlots_PositionSlotCtrlNbr",
-                        column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DispatchOverrides",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    OverrideType = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    ReasonCode = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
-                    ReasonText = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    ApprovedByCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    ApprovedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DispatchOverrides", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_DispatchOverrides_Employees_ApprovedByCtrlNbr",
-                        column: x => x.ApprovedByCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_DispatchOverrides_Employees_EmployeeCtrlNbr",
-                        column: x => x.EmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_DispatchOverrides_PositionSlots_PositionSlotCtrlNbr",
-                        column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DispatchProjections",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    AsOfUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ProjectedEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    TraceJson = table.Column<string>(type: "TEXT", nullable: true),
-                    ComputedUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DispatchProjections", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_DispatchProjections_Employees_ProjectedEmployeeCtrlNbr",
-                        column: x => x.ProjectedEmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_DispatchProjections_PositionSlots_PositionSlotCtrlNbr",
-                        column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "EmployeeBookings",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    StartUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    EndUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_EmployeeBookings", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_EmployeeBookings_Employees_EmployeeCtrlNbr",
-                        column: x => x.EmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EmployeeBookings_PositionSlots_PositionSlotCtrlNbr",
-                        column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "SlotRequirements",
                 columns: table => new
                 {
@@ -3982,17 +4790,55 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
-                name: "BulletinBids",
+                name: "DispatchDecisionLogs",
                 columns: table => new
                 {
                     CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    BulletinCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    AsOfUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Phase = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    SelectedEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    SelectionSource = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DecisionJson = table.Column<string>(type: "TEXT", nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DispatchDecisionLogs", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_DispatchDecisionLogs_Employees_SelectedEmployeeCtrlNbr",
+                        column: x => x.SelectedEmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_DispatchDecisionLogs_PositionSlotInstances_PositionSlotCtrlNbr",
+                        column: x => x.PositionSlotCtrlNbr,
+                        principalTable: "PositionSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DispatchOverrides",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    Priority = table.Column<int>(type: "INTEGER", nullable: false),
-                    SubmittedUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    SeniorityDate = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    SeniorityRank = table.Column<int>(type: "INTEGER", nullable: false),
+                    OverrideType = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    ReasonCode = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    ReasonText = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
                     Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    ApprovedByCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    ApprovedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -4004,32 +4850,37 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_BulletinBids", x => x.CtrlNbr);
+                    table.PrimaryKey("PK_DispatchOverrides", x => x.CtrlNbr);
                     table.ForeignKey(
-                        name: "FK_BulletinBids_Bulletins_BulletinCtrlNbr",
-                        column: x => x.BulletinCtrlNbr,
-                        principalTable: "Bulletins",
+                        name: "FK_DispatchOverrides_Employees_ApprovedByCtrlNbr",
+                        column: x => x.ApprovedByCtrlNbr,
+                        principalTable: "Employees",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_BulletinBids_Employees_EmployeeCtrlNbr",
+                        name: "FK_DispatchOverrides_Employees_EmployeeCtrlNbr",
                         column: x => x.EmployeeCtrlNbr,
                         principalTable: "Employees",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_DispatchOverrides_PositionSlotInstances_PositionSlotCtrlNbr",
+                        column: x => x.PositionSlotCtrlNbr,
+                        principalTable: "PositionSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
-                name: "QualificationEvidence",
+                name: "DispatchProjections",
                 columns: table => new
                 {
                     CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EmployeeQualificationCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    RequirementCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    EvidenceType = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    EvidenceValue = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    RecordedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    RecordedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    AsOfUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ProjectedEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    TraceJson = table.Column<string>(type: "TEXT", nullable: true),
+                    ComputedUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -4041,32 +4892,30 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_QualificationEvidence", x => x.CtrlNbr);
+                    table.PrimaryKey("PK_DispatchProjections", x => x.CtrlNbr);
                     table.ForeignKey(
-                        name: "FK_QualificationEvidence_EmployeeQualifications_EmployeeQualificationCtrlNbr",
-                        column: x => x.EmployeeQualificationCtrlNbr,
-                        principalTable: "EmployeeQualifications",
+                        name: "FK_DispatchProjections_Employees_ProjectedEmployeeCtrlNbr",
+                        column: x => x.ProjectedEmployeeCtrlNbr,
+                        principalTable: "Employees",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_QualificationEvidence_QualificationRequirements_RequirementCtrlNbr",
-                        column: x => x.RequirementCtrlNbr,
-                        principalTable: "QualificationRequirements",
+                        name: "FK_DispatchProjections_PositionSlotInstances_PositionSlotCtrlNbr",
+                        column: x => x.PositionSlotCtrlNbr,
+                        principalTable: "PositionSlotInstances",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
-                name: "RosterBoardPositions",
+                name: "EmployeeBookings",
                 columns: table => new
                 {
                     CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    RosterBoardCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    StaffablePositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    PositionOrder = table.Column<int>(type: "INTEGER", nullable: false),
-                    HangoutStatus = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    HangoutAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    StartUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EndUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -4078,143 +4927,19 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RosterBoardPositions", x => x.CtrlNbr);
+                    table.PrimaryKey("PK_EmployeeBookings", x => x.CtrlNbr);
                     table.ForeignKey(
-                        name: "FK_RosterBoardPositions_Employees_EmployeeCtrlNbr",
+                        name: "FK_EmployeeBookings_Employees_EmployeeCtrlNbr",
                         column: x => x.EmployeeCtrlNbr,
                         principalTable: "Employees",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_RosterBoardPositions_RosterBoards_RosterBoardCtrlNbr",
-                        column: x => x.RosterBoardCtrlNbr,
-                        principalTable: "RosterBoards",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_RosterBoardPositions_StaffablePositions_StaffablePositionCtrlNbr",
-                        column: x => x.StaffablePositionCtrlNbr,
-                        principalTable: "StaffablePositions",
+                        name: "FK_EmployeeBookings_PositionSlotInstances_PositionSlotCtrlNbr",
+                        column: x => x.PositionSlotCtrlNbr,
+                        principalTable: "PositionSlotInstances",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PendingSeniorityStateChanges",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    SeniorityCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    FromSeniorityStateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    ToSeniorityStateCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EffectiveDateUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", nullable: false),
-                    ScheduledByUserId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    ScheduledAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ProcessedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    CancelledByUserId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PendingSeniorityStateChanges", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_PendingSeniorityStateChanges_Employees_EmployeeCtrlNbr",
-                        column: x => x.EmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PendingSeniorityStateChanges_SeniorityStates_FromSeniorityStateCtrlNbr",
-                        column: x => x.FromSeniorityStateCtrlNbr,
-                        principalTable: "SeniorityStates",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PendingSeniorityStateChanges_SeniorityStates_ToSeniorityStateCtrlNbr",
-                        column: x => x.ToSeniorityStateCtrlNbr,
-                        principalTable: "SeniorityStates",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PendingSeniorityStateChanges_Seniority_SeniorityCtrlNbr",
-                        column: x => x.SeniorityCtrlNbr,
-                        principalTable: "Seniority",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AbsenceApprovals",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    AbsenceRequestCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    ApprovalOfficerCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    DecidedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Notes = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AbsenceApprovals", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_AbsenceApprovals_AbsenceRequests_AbsenceRequestCtrlNbr",
-                        column: x => x.AbsenceRequestCtrlNbr,
-                        principalTable: "AbsenceRequests",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_AbsenceApprovals_Employees_ApprovalOfficerCtrlNbr",
-                        column: x => x.ApprovalOfficerCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AbsenceMarkUps",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    AbsenceRequestCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    ScheduledMarkUpUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ActualMarkUpUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsAutoMarkUp = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AbsenceMarkUps", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_AbsenceMarkUps_AbsenceRequests_AbsenceRequestCtrlNbr",
-                        column: x => x.AbsenceRequestCtrlNbr,
-                        principalTable: "AbsenceRequests",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -4245,57 +4970,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_VacancyImpacts_PositionSlots_PositionSlotCtrlNbr",
+                        name: "FK_VacancyImpacts_PositionSlotInstances_PositionSlotCtrlNbr",
                         column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "OnDutyRecords",
-                columns: table => new
-                {
-                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    BookingCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
-                    OnDutyTimeUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ScheduledOnDutyTimeUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsLateCall = table.Column<bool>(type: "INTEGER", nullable: false),
-                    LateCallAdjustedTimeUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    PreviousRestHours = table.Column<decimal>(type: "TEXT", precision: 5, scale: 2, nullable: false),
-                    ConsecutiveDays = table.Column<int>(type: "INTEGER", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    IsAssigned = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
-                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_OnDutyRecords", x => x.CtrlNbr);
-                    table.ForeignKey(
-                        name: "FK_OnDutyRecords_EmployeeBookings_BookingCtrlNbr",
-                        column: x => x.BookingCtrlNbr,
-                        principalTable: "EmployeeBookings",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_OnDutyRecords_Employees_EmployeeCtrlNbr",
-                        column: x => x.EmployeeCtrlNbr,
-                        principalTable: "Employees",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_OnDutyRecords_PositionSlots_PositionSlotCtrlNbr",
-                        column: x => x.PositionSlotCtrlNbr,
-                        principalTable: "PositionSlots",
+                        principalTable: "PositionSlotInstances",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -4330,23 +5007,23 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
-                name: "BoardSlotInstances",
+                name: "OnDutyRecords",
                 columns: table => new
                 {
                     CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    ShiftInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    RosterBoardCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    RosterBoardPositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
                     EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
-                    BoardOrder = table.Column<int>(type: "INTEGER", nullable: false),
-                    CallSequence = table.Column<long>(type: "INTEGER", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    BoardName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    EmployeeName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false, defaultValue: ""),
-                    PositionName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, defaultValue: ""),
-                    DaysWorked = table.Column<int>(type: "INTEGER", nullable: false),
+                    BookingCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    OnDutyTimeUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ScheduledOnDutyTimeUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IsLateCall = table.Column<bool>(type: "INTEGER", nullable: false),
+                    LateCallAdjustedTimeUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    PreviousRestHours = table.Column<decimal>(type: "TEXT", precision: 5, scale: 2, nullable: false),
                     ConsecutiveDays = table.Column<int>(type: "INTEGER", nullable: false),
-                    RestAvailableAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    CompletionStatus = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
+                    IsAssigned = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CompletedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -4358,31 +5035,68 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_BoardSlotInstances", x => x.CtrlNbr);
+                    table.PrimaryKey("PK_OnDutyRecords", x => x.CtrlNbr);
                     table.ForeignKey(
-                        name: "FK_BoardSlotInstances_Employees_EmployeeCtrlNbr",
+                        name: "FK_OnDutyRecords_EmployeeBookings_BookingCtrlNbr",
+                        column: x => x.BookingCtrlNbr,
+                        principalTable: "EmployeeBookings",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_OnDutyRecords_Employees_EmployeeCtrlNbr",
                         column: x => x.EmployeeCtrlNbr,
                         principalTable: "Employees",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_BoardSlotInstances_RosterBoardPositions_RosterBoardPositionCtrlNbr",
-                        column: x => x.RosterBoardPositionCtrlNbr,
-                        principalTable: "RosterBoardPositions",
+                        name: "FK_OnDutyRecords_PositionSlotInstances_PositionSlotCtrlNbr",
+                        column: x => x.PositionSlotCtrlNbr,
+                        principalTable: "PositionSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BoardSnapshots",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ShiftInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    PositionSlotInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    VacancyImpactCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    CapturedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    TriggerSource = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    DecisionSequence = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BoardSnapshots", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshots_PositionSlotInstances_PositionSlotInstanceCtrlNbr",
+                        column: x => x.PositionSlotInstanceCtrlNbr,
+                        principalTable: "PositionSlotInstances",
                         principalColumn: "CtrlNbr",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_BoardSlotInstances_RosterBoards_RosterBoardCtrlNbr",
-                        column: x => x.RosterBoardCtrlNbr,
-                        principalTable: "RosterBoards",
-                        principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_BoardSlotInstances_ShiftInstances_ShiftInstanceCtrlNbr",
+                        name: "FK_BoardSnapshots_ShiftInstances_ShiftInstanceCtrlNbr",
                         column: x => x.ShiftInstanceCtrlNbr,
                         principalTable: "ShiftInstances",
                         principalColumn: "CtrlNbr",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshots_VacancyImpacts_VacancyImpactCtrlNbr",
+                        column: x => x.VacancyImpactCtrlNbr,
+                        principalTable: "VacancyImpacts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -4435,8 +5149,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                     TotalTimeOnDutyMinutes = table.Column<int>(type: "INTEGER", nullable: false),
                     RestHoursRequired = table.Column<decimal>(type: "TEXT", precision: 5, scale: 2, nullable: false),
                     RestedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    TwentyFourHourRestAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
                     ConsecutiveDayRestedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
                     ReleaseReason = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    OffDutyTimeConfirmed = table.Column<bool>(type: "INTEGER", nullable: false),
+                    OffDutyTimeConfirmedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    OffDutyTimeConfirmedBy = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
                     CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
                     CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
                     ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
@@ -4600,6 +5318,206 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateTable(
+                name: "VacancyFillLogs",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    WorkAreaGroupCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ShiftInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    PositionSlotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    OnDutyRecordCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    AssignmentCode = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                    CraftRoleName = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
+                    ForceOverride = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ForceReason = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
+                    Accepted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    AcceptedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsLateCall = table.Column<bool>(type: "INTEGER", nullable: false),
+                    LateCallNote = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
+                    ArrivalFollowUpNote = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
+                    DispatcherNote = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: true),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_VacancyFillLogs", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_VacancyFillLogs_DynamicGroups_WorkAreaGroupCtrlNbr",
+                        column: x => x.WorkAreaGroupCtrlNbr,
+                        principalTable: "DynamicGroups",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_VacancyFillLogs_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_VacancyFillLogs_OnDutyRecords_OnDutyRecordCtrlNbr",
+                        column: x => x.OnDutyRecordCtrlNbr,
+                        principalTable: "OnDutyRecords",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_VacancyFillLogs_PositionSlotInstances_PositionSlotCtrlNbr",
+                        column: x => x.PositionSlotCtrlNbr,
+                        principalTable: "PositionSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_VacancyFillLogs_ShiftInstances_ShiftInstanceCtrlNbr",
+                        column: x => x.ShiftInstanceCtrlNbr,
+                        principalTable: "ShiftInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BoardSelectionDecisions",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ShiftInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    PositionSlotInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    VacancyImpactCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    SnapshotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    SelectedBoardSlotInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    SelectedEmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    OccurredAtUtc = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    DecisionSequence = table.Column<int>(type: "INTEGER", nullable: false),
+                    DecisionSource = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    DecisionPhase = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    DecisionJson = table.Column<string>(type: "TEXT", maxLength: 8000, nullable: true),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BoardSelectionDecisions", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_BoardSelectionDecisions_BoardSlotInstances_SelectedBoardSlotInstanceCtrlNbr",
+                        column: x => x.SelectedBoardSlotInstanceCtrlNbr,
+                        principalTable: "BoardSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSelectionDecisions_BoardSnapshots_SnapshotCtrlNbr",
+                        column: x => x.SnapshotCtrlNbr,
+                        principalTable: "BoardSnapshots",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSelectionDecisions_Employees_SelectedEmployeeCtrlNbr",
+                        column: x => x.SelectedEmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSelectionDecisions_PositionSlotInstances_PositionSlotInstanceCtrlNbr",
+                        column: x => x.PositionSlotInstanceCtrlNbr,
+                        principalTable: "PositionSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSelectionDecisions_ShiftInstances_ShiftInstanceCtrlNbr",
+                        column: x => x.ShiftInstanceCtrlNbr,
+                        principalTable: "ShiftInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSelectionDecisions_VacancyImpacts_VacancyImpactCtrlNbr",
+                        column: x => x.VacancyImpactCtrlNbr,
+                        principalTable: "VacancyImpacts",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BoardSnapshotRows",
+                columns: table => new
+                {
+                    CtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    BoardSnapshotCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    BoardSlotInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    ShiftInstanceCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RosterBoardCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    RosterBoardPositionCtrlNbr = table.Column<long>(type: "INTEGER", nullable: true),
+                    EmployeeCtrlNbr = table.Column<long>(type: "INTEGER", nullable: false),
+                    BoardOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                    CallSequence = table.Column<long>(type: "INTEGER", nullable: false),
+                    TieUpAtUtc = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    BoardName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    EmployeeName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false, defaultValue: ""),
+                    PositionName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, defaultValue: ""),
+                    CreatedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    CreatedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    ModifiedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    ModifiedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    DeletedBy_AuditName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    DeletedBy_AuditDateTime = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BoardSnapshotRows", x => x.CtrlNbr);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshotRows_BoardSlotInstances_BoardSlotInstanceCtrlNbr",
+                        column: x => x.BoardSlotInstanceCtrlNbr,
+                        principalTable: "BoardSlotInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshotRows_BoardSnapshots_BoardSnapshotCtrlNbr",
+                        column: x => x.BoardSnapshotCtrlNbr,
+                        principalTable: "BoardSnapshots",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshotRows_Employees_EmployeeCtrlNbr",
+                        column: x => x.EmployeeCtrlNbr,
+                        principalTable: "Employees",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshotRows_RosterBoardPositions_RosterBoardPositionCtrlNbr",
+                        column: x => x.RosterBoardPositionCtrlNbr,
+                        principalTable: "RosterBoardPositions",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshotRows_RosterBoards_RosterBoardCtrlNbr",
+                        column: x => x.RosterBoardCtrlNbr,
+                        principalTable: "RosterBoards",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BoardSnapshotRows_ShiftInstances_ShiftInstanceCtrlNbr",
+                        column: x => x.ShiftInstanceCtrlNbr,
+                        principalTable: "ShiftInstances",
+                        principalColumn: "CtrlNbr",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "EarningApprovals",
                 columns: table => new
                 {
@@ -4715,14 +5633,10 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AbsenceApprovals_AbsenceRequestCtrlNbr",
-                table: "AbsenceApprovals",
-                column: "AbsenceRequestCtrlNbr");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AbsenceApprovals_ApprovalOfficerCtrlNbr",
-                table: "AbsenceApprovals",
-                column: "ApprovalOfficerCtrlNbr");
+                name: "IX_AbsenceApprovalPolicies_RailroadCtrlNbr",
+                table: "AbsenceApprovalPolicies",
+                column: "RailroadCtrlNbr",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AbsenceCodeCraftOverrides_AbsenceCodeCtrlNbr_CraftCtrlNbr",
@@ -4736,15 +5650,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "CraftCtrlNbr");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AbsenceCodes_Code",
+                name: "IX_AbsenceCodes_RailroadCtrlNbr_Code",
                 table: "AbsenceCodes",
-                column: "Code",
+                columns: new[] { "RailroadCtrlNbr", "Code" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AbsenceMarkUps_AbsenceRequestCtrlNbr",
-                table: "AbsenceMarkUps",
-                column: "AbsenceRequestCtrlNbr");
+                name: "IX_AbsenceEndRecords_AbsenceRequestCtrlNbr",
+                table: "AbsenceEndRecords",
+                column: "AbsenceRequestCtrlNbr",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AbsenceRequests_AbsenceCodeCtrlNbr",
@@ -4757,14 +5672,67 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "ApprovedByCtrlNbr");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequests_CancelledByCtrlNbr",
+                table: "AbsenceRequests",
+                column: "CancelledByCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequests_DeniedByCtrlNbr",
+                table: "AbsenceRequests",
+                column: "DeniedByCtrlNbr");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AbsenceRequests_EmployeeCtrlNbr",
                 table: "AbsenceRequests",
                 column: "EmployeeCtrlNbr");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AbsenceRequests_PositionSlotCtrlNbr",
-                table: "AbsenceRequests",
-                column: "PositionSlotCtrlNbr");
+                name: "IX_AbsenceRequestWaitListLink_AbsenceRequestCtrlNbr_AbsenceRequestWaitListRecordCtrlNbr",
+                table: "AbsenceRequestWaitListLink",
+                columns: new[] { "AbsenceRequestCtrlNbr", "AbsenceRequestWaitListRecordCtrlNbr" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequestWaitListLink_AbsenceRequestWaitListRecordCtrlNbr",
+                table: "AbsenceRequestWaitListLink",
+                column: "AbsenceRequestWaitListRecordCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequestWaitListRecord_AbsenceCodeCtrlNbr",
+                table: "AbsenceRequestWaitListRecord",
+                column: "AbsenceCodeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequestWaitListRecord_CraftCtrlNbr",
+                table: "AbsenceRequestWaitListRecord",
+                column: "CraftCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequestWaitListRecord_DepartmentCtrlNbr",
+                table: "AbsenceRequestWaitListRecord",
+                column: "DepartmentCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequestWaitListRecord_EmployeeCtrlNbr",
+                table: "AbsenceRequestWaitListRecord",
+                column: "EmployeeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceRequestWaitListRecord_WaitListType_RequestDateUtc_AssignedAtUtc_EntryUtc",
+                table: "AbsenceRequestWaitListRecord",
+                columns: new[] { "WaitListType", "RequestDateUtc", "AssignedAtUtc", "EntryUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceStartRecords_AbsenceRequestCtrlNbr",
+                table: "AbsenceStartRecords",
+                column: "AbsenceRequestCtrlNbr",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AbsenceWaitListAllowancePolicy_CraftCtrlNbr_WaitListType_AllowanceCode_CalendarYear",
+                table: "AbsenceWaitListAllowancePolicy",
+                columns: new[] { "CraftCtrlNbr", "WaitListType", "AllowanceCode", "CalendarYear" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Addresses_AddressTypeCtrlNbr",
@@ -4813,6 +5781,37 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "WorkAreaGroupCtrlNbr");
 
             migrationBuilder.CreateIndex(
+                name: "IX_BoardSelectionDecisions_PositionSlotInstanceCtrlNbr",
+                table: "BoardSelectionDecisions",
+                column: "PositionSlotInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSelectionDecisions_SelectedBoardSlotInstanceCtrlNbr",
+                table: "BoardSelectionDecisions",
+                column: "SelectedBoardSlotInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSelectionDecisions_SelectedEmployeeCtrlNbr",
+                table: "BoardSelectionDecisions",
+                column: "SelectedEmployeeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSelectionDecisions_ShiftInstanceCtrlNbr_DecisionSequence",
+                table: "BoardSelectionDecisions",
+                columns: new[] { "ShiftInstanceCtrlNbr", "DecisionSequence" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSelectionDecisions_SnapshotCtrlNbr",
+                table: "BoardSelectionDecisions",
+                column: "SnapshotCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSelectionDecisions_VacancyImpactCtrlNbr",
+                table: "BoardSelectionDecisions",
+                column: "VacancyImpactCtrlNbr");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_BoardSlotInstances_EmployeeCtrlNbr",
                 table: "BoardSlotInstances",
                 column: "EmployeeCtrlNbr");
@@ -4831,6 +5830,63 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "IX_BoardSlotInstances_ShiftInstanceCtrlNbr",
                 table: "BoardSlotInstances",
                 column: "ShiftInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshotRows_BoardSlotInstanceCtrlNbr",
+                table: "BoardSnapshotRows",
+                column: "BoardSlotInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshotRows_BoardSnapshotCtrlNbr_BoardOrder_CallSequence_CtrlNbr",
+                table: "BoardSnapshotRows",
+                columns: new[] { "BoardSnapshotCtrlNbr", "BoardOrder", "CallSequence", "CtrlNbr" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshotRows_EmployeeCtrlNbr",
+                table: "BoardSnapshotRows",
+                column: "EmployeeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshotRows_RosterBoardCtrlNbr",
+                table: "BoardSnapshotRows",
+                column: "RosterBoardCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshotRows_RosterBoardPositionCtrlNbr",
+                table: "BoardSnapshotRows",
+                column: "RosterBoardPositionCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshotRows_ShiftInstanceCtrlNbr",
+                table: "BoardSnapshotRows",
+                column: "ShiftInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshots_PositionSlotInstanceCtrlNbr",
+                table: "BoardSnapshots",
+                column: "PositionSlotInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshots_ShiftInstanceCtrlNbr_DecisionSequence",
+                table: "BoardSnapshots",
+                columns: new[] { "ShiftInstanceCtrlNbr", "DecisionSequence" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BoardSnapshots_VacancyImpactCtrlNbr",
+                table: "BoardSnapshots",
+                column: "VacancyImpactCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BulletinAccessAudits_BulletinCtrlNbr_EmployeeCtrlNbr_ViewedAtUtc",
+                table: "BulletinAccessAudits",
+                columns: new[] { "BulletinCtrlNbr", "EmployeeCtrlNbr", "ViewedAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BulletinAccessAudits_EmployeeCtrlNbr",
+                table: "BulletinAccessAudits",
+                column: "EmployeeCtrlNbr");
 
             migrationBuilder.CreateIndex(
                 name: "IX_BulletinBids_BulletinCtrlNbr",
@@ -4869,6 +5925,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "PositionVacancyCtrlNbr");
 
             migrationBuilder.CreateIndex(
+                name: "IX_CallSheetRule_DepartmentCtrlNbr",
+                table: "CallSheetRule",
+                column: "DepartmentCtrlNbr",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CertificationEligibilityChecks_EmployeeCertificationCtrlNbr",
                 table: "CertificationEligibilityChecks",
                 column: "EmployeeCertificationCtrlNbr");
@@ -4887,6 +5949,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "IX_CompensationBalances_EmployeeCtrlNbr_CompensationType",
                 table: "CompensationBalances",
                 columns: new[] { "EmployeeCtrlNbr", "CompensationType" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CraftAbsenceWaitListPolicy_CraftCtrlNbr",
+                table: "CraftAbsenceWaitListPolicy",
+                column: "CraftCtrlNbr",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CraftCallSheetRules_CraftCtrlNbr",
+                table: "CraftCallSheetRules",
+                column: "CraftCtrlNbr",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -4937,6 +6011,11 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "IX_CraftRoles_CraftCtrlNbr",
                 table: "CraftRoles",
                 column: "CraftCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CraftRoles_DefaultRosterBoardCtrlNbr",
+                table: "CraftRoles",
+                column: "DefaultRosterBoardCtrlNbr");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Crafts_DepartmentCtrlNbr",
@@ -5025,6 +6104,18 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "IX_Department_DynamicGroupCtrlNbr",
                 table: "Department",
                 column: "DynamicGroupCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DepartmentAbsenceRequestWindowPolicy_DepartmentCtrlNbr",
+                table: "DepartmentAbsenceRequestWindowPolicy",
+                column: "DepartmentCtrlNbr",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DepartmentReassignmentRules_DepartmentCtrlNbr",
+                table: "DepartmentReassignmentRules",
+                column: "DepartmentCtrlNbr",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DispatchDecisionLogs_PositionSlotCtrlNbr",
@@ -5244,6 +6335,56 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "EmploymentStatusCtrlNbr");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_ErrorKind",
+                table: "ErrorLogs",
+                column: "ErrorKind");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_FingerprintHash",
+                table: "ErrorLogs",
+                column: "FingerprintHash");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_FingerprintHash_Status",
+                table: "ErrorLogs",
+                columns: new[] { "FingerprintHash", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_OccurredAtUtc",
+                table: "ErrorLogs",
+                column: "OccurredAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_ParentCtrlNbr",
+                table: "ErrorLogs",
+                column: "ParentCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_RailroadCtrlNbr",
+                table: "ErrorLogs",
+                column: "RailroadCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_Severity",
+                table: "ErrorLogs",
+                column: "Severity");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_SourceApp",
+                table: "ErrorLogs",
+                column: "SourceApp");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_Status",
+                table: "ErrorLogs",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ErrorLogs_TraceId",
+                table: "ErrorLogs",
+                column: "TraceId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Features_Key",
                 table: "Features",
                 column: "Key",
@@ -5393,6 +6534,17 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_NoAccessPolicies_CraftCtrlNbr",
+                table: "NoAccessPolicies",
+                column: "CraftCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_NoAccessPolicies_RailroadCtrlNbr_CraftCtrlNbr",
+                table: "NoAccessPolicies",
+                columns: new[] { "RailroadCtrlNbr", "CraftCtrlNbr" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_NotificationAcknowledgements_EmployeeNotificationCtrlNbr",
                 table: "NotificationAcknowledgements",
                 column: "EmployeeNotificationCtrlNbr");
@@ -5401,6 +6553,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "IX_NotificationProviderConfigs_WorkAreaGroupCtrlNbr",
                 table: "NotificationProviderConfigs",
                 column: "WorkAreaGroupCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_NotificationTypeConfigs_RailroadCtrlNbr_Key",
+                table: "NotificationTypeConfigs",
+                columns: new[] { "RailroadCtrlNbr", "Key" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_OffDutyRecords_EmployeeCtrlNbr",
@@ -5582,6 +6740,26 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "IX_PositionAssignments_StaffablePositionCtrlNbr",
                 table: "PositionAssignments",
                 column: "StaffablePositionCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PositionChangeRecords_EmployeeCtrlNbr_IsOpen",
+                table: "PositionChangeRecords",
+                columns: new[] { "EmployeeCtrlNbr", "IsOpen" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PositionChangeRecords_EmployeeNotificationCtrlNbr",
+                table: "PositionChangeRecords",
+                column: "EmployeeNotificationCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PositionChangeRecords_RailroadCtrlNbr_IsOpen",
+                table: "PositionChangeRecords",
+                columns: new[] { "RailroadCtrlNbr", "IsOpen" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PositionChangeRecords_SourceType_SourceCtrlNbr_IsOpen",
+                table: "PositionChangeRecords",
+                columns: new[] { "SourceType", "SourceCtrlNbr", "IsOpen" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_PositionSlotInstances_CrewPositionCtrlNbr",
@@ -5860,22 +7038,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "ParentCtrlNbr");
 
             migrationBuilder.CreateIndex(
-                name: "IX_SeniorityStateVacancyConfigs_ParentCtrlNbr",
-                table: "SeniorityStateVacancyConfigs",
-                column: "ParentCtrlNbr");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_SeniorityStateVacancyConfigs_RailroadCtrlNbr_SeniorityStateCtrlNbr",
-                table: "SeniorityStateVacancyConfigs",
-                columns: new[] { "RailroadCtrlNbr", "SeniorityStateCtrlNbr" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_SeniorityStateVacancyConfigs_SeniorityStateCtrlNbr",
-                table: "SeniorityStateVacancyConfigs",
-                column: "SeniorityStateCtrlNbr");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_ShiftDefinitions_WorkAreaGroupCtrlNbr",
                 table: "ShiftDefinitions",
                 column: "WorkAreaGroupCtrlNbr");
@@ -5962,6 +7124,31 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "VacancyCallRequestCtrlNbr");
 
             migrationBuilder.CreateIndex(
+                name: "IX_VacancyFillLogs_EmployeeCtrlNbr",
+                table: "VacancyFillLogs",
+                column: "EmployeeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VacancyFillLogs_OnDutyRecordCtrlNbr",
+                table: "VacancyFillLogs",
+                column: "OnDutyRecordCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VacancyFillLogs_PositionSlotCtrlNbr",
+                table: "VacancyFillLogs",
+                column: "PositionSlotCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VacancyFillLogs_ShiftInstanceCtrlNbr",
+                table: "VacancyFillLogs",
+                column: "ShiftInstanceCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VacancyFillLogs_WorkAreaGroupCtrlNbr",
+                table: "VacancyFillLogs",
+                column: "WorkAreaGroupCtrlNbr");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_VacancyImpacts_AbsenceRequestCtrlNbr",
                 table: "VacancyImpacts",
                 column: "AbsenceRequestCtrlNbr");
@@ -5992,9 +7179,75 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 column: "WorkerScheduleCtrlNbr");
 
             migrationBuilder.CreateIndex(
-                name: "IX_WorkerSchedules_WorkAreaGroupCtrlNbr",
+                name: "IX_WorkerSchedules_WorkAreaGroupCtrlNbr_WorkerType",
                 table: "WorkerSchedules",
-                column: "WorkAreaGroupCtrlNbr");
+                columns: new[] { "WorkAreaGroupCtrlNbr", "WorkerType" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowEffectTypes_Code",
+                table: "WorkflowEffectTypes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowExecutionHistories_RailroadCtrlNbr",
+                table: "WorkflowExecutionHistories",
+                column: "RailroadCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowExecutionHistories_TriggerTypeCtrlNbr",
+                table: "WorkflowExecutionHistories",
+                column: "TriggerTypeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowExecutionHistories_WorkflowTemplateCtrlNbr_StartedAtUtc",
+                table: "WorkflowExecutionHistories",
+                columns: new[] { "WorkflowTemplateCtrlNbr", "StartedAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowExecutionHistories_WorkflowVersionCtrlNbr",
+                table: "WorkflowExecutionHistories",
+                column: "WorkflowVersionCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowMetadataFieldTypes_Code",
+                table: "WorkflowMetadataFieldTypes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowOperatorTypes_Code",
+                table: "WorkflowOperatorTypes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowTemplates_RailroadCtrlNbr_TriggerTypeCtrlNbr",
+                table: "WorkflowTemplates",
+                columns: new[] { "RailroadCtrlNbr", "TriggerTypeCtrlNbr" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowTemplates_TriggerTypeCtrlNbr",
+                table: "WorkflowTemplates",
+                column: "TriggerTypeCtrlNbr");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowTriggerTypes_Code",
+                table: "WorkflowTriggerTypes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowVersions_Status_PublishedAtUtc",
+                table: "WorkflowVersions",
+                columns: new[] { "Status", "PublishedAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowVersions_WorkflowTemplateCtrlNbr_VersionNumber",
+                table: "WorkflowVersions",
+                columns: new[] { "WorkflowTemplateCtrlNbr", "VersionNumber" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_WorkInstances_AssignmentGroupCtrlNbr",
@@ -6014,13 +7267,22 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "AbolishmentRecords");
 
             migrationBuilder.DropTable(
-                name: "AbsenceApprovals");
+                name: "AbsenceApprovalPolicies");
 
             migrationBuilder.DropTable(
                 name: "AbsenceCodeCraftOverrides");
 
             migrationBuilder.DropTable(
-                name: "AbsenceMarkUps");
+                name: "AbsenceEndRecords");
+
+            migrationBuilder.DropTable(
+                name: "AbsenceRequestWaitListLink");
+
+            migrationBuilder.DropTable(
+                name: "AbsenceStartRecords");
+
+            migrationBuilder.DropTable(
+                name: "AbsenceWaitListAllowancePolicy");
 
             migrationBuilder.DropTable(
                 name: "Addresses");
@@ -6035,7 +7297,13 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "BoardCascadePolicies");
 
             migrationBuilder.DropTable(
-                name: "BoardSlotInstances");
+                name: "BoardSelectionDecisions");
+
+            migrationBuilder.DropTable(
+                name: "BoardSnapshotRows");
+
+            migrationBuilder.DropTable(
+                name: "BulletinAccessAudits");
 
             migrationBuilder.DropTable(
                 name: "BulletinBids");
@@ -6047,6 +7315,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "BulletinRules");
 
             migrationBuilder.DropTable(
+                name: "CallSheetRule");
+
+            migrationBuilder.DropTable(
                 name: "CertificationEligibilityChecks");
 
             migrationBuilder.DropTable(
@@ -6054,6 +7325,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             migrationBuilder.DropTable(
                 name: "CompensationBalances");
+
+            migrationBuilder.DropTable(
+                name: "CraftAbsenceWaitListPolicy");
+
+            migrationBuilder.DropTable(
+                name: "CraftCallSheetRules");
 
             migrationBuilder.DropTable(
                 name: "CraftDisplacementPolicies");
@@ -6081,6 +7358,12 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
 
             migrationBuilder.DropTable(
                 name: "DailyEmployeeStatusRecords");
+
+            migrationBuilder.DropTable(
+                name: "DepartmentAbsenceRequestWindowPolicy");
+
+            migrationBuilder.DropTable(
+                name: "DepartmentReassignmentRules");
 
             migrationBuilder.DropTable(
                 name: "DispatchDecisionLogs");
@@ -6116,6 +7399,9 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "EmploymentStatusHistory");
 
             migrationBuilder.DropTable(
+                name: "ErrorLogs");
+
+            migrationBuilder.DropTable(
                 name: "FraCertificationCheckConfigs");
 
             migrationBuilder.DropTable(
@@ -6149,10 +7435,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "Invitations");
 
             migrationBuilder.DropTable(
+                name: "NoAccessPolicies");
+
+            migrationBuilder.DropTable(
                 name: "NotificationAcknowledgements");
 
             migrationBuilder.DropTable(
                 name: "NotificationProviderConfigs");
+
+            migrationBuilder.DropTable(
+                name: "NotificationTypeConfigs");
 
             migrationBuilder.DropTable(
                 name: "OffDutyRecords");
@@ -6194,7 +7486,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "PositionAssignments");
 
             migrationBuilder.DropTable(
-                name: "PositionSlotInstances");
+                name: "PositionChangeRecords");
 
             migrationBuilder.DropTable(
                 name: "ProcessingLocks");
@@ -6227,9 +7519,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "SeniorityMoves");
 
             migrationBuilder.DropTable(
-                name: "SeniorityStateVacancyConfigs");
-
-            migrationBuilder.DropTable(
                 name: "SlotRequirements");
 
             migrationBuilder.DropTable(
@@ -6245,7 +7534,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "VacancyCallResponses");
 
             migrationBuilder.DropTable(
-                name: "VacancyImpacts");
+                name: "VacancyFillLogs");
 
             migrationBuilder.DropTable(
                 name: "VacancyResolutionRuns");
@@ -6257,13 +7546,31 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "WorkerExecutionLogs");
 
             migrationBuilder.DropTable(
+                name: "WorkflowEffectTypes");
+
+            migrationBuilder.DropTable(
+                name: "WorkflowExecutionHistories");
+
+            migrationBuilder.DropTable(
+                name: "WorkflowMetadataFieldTypes");
+
+            migrationBuilder.DropTable(
+                name: "WorkflowOperatorTypes");
+
+            migrationBuilder.DropTable(
+                name: "AbsenceRequestWaitListRecord");
+
+            migrationBuilder.DropTable(
                 name: "AddressTypes");
 
             migrationBuilder.DropTable(
                 name: "ShiftDefinitions");
 
             migrationBuilder.DropTable(
-                name: "RosterBoardPositions");
+                name: "BoardSlotInstances");
+
+            migrationBuilder.DropTable(
+                name: "BoardSnapshots");
 
             migrationBuilder.DropTable(
                 name: "Bulletins");
@@ -6293,9 +7600,6 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "Holidays");
 
             migrationBuilder.DropTable(
-                name: "EmployeeNotifications");
-
-            migrationBuilder.DropTable(
                 name: "PayrollRecords");
 
             migrationBuilder.DropTable(
@@ -6311,7 +7615,7 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "PhoneNumberTypes");
 
             migrationBuilder.DropTable(
-                name: "CrewPositions");
+                name: "EmployeeNotifications");
 
             migrationBuilder.DropTable(
                 name: "EmployeeQualifications");
@@ -6329,16 +7633,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "VacancyCallRequests");
 
             migrationBuilder.DropTable(
-                name: "AbsenceRequests");
-
-            migrationBuilder.DropTable(
-                name: "ShiftInstances");
-
-            migrationBuilder.DropTable(
                 name: "WorkerSchedules");
 
             migrationBuilder.DropTable(
-                name: "RosterBoards");
+                name: "WorkflowVersions");
+
+            migrationBuilder.DropTable(
+                name: "RosterBoardPositions");
+
+            migrationBuilder.DropTable(
+                name: "VacancyImpacts");
 
             migrationBuilder.DropTable(
                 name: "PositionVacancies");
@@ -6353,22 +7657,16 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "SeniorityStates");
 
             migrationBuilder.DropTable(
-                name: "Crews");
-
-            migrationBuilder.DropTable(
-                name: "StaffablePositions");
-
-            migrationBuilder.DropTable(
                 name: "QualificationTypes");
 
             migrationBuilder.DropTable(
-                name: "AbsenceCodes");
+                name: "PositionSlots");
 
             migrationBuilder.DropTable(
-                name: "RequiredPositionsStrategy");
+                name: "WorkflowTemplates");
 
             migrationBuilder.DropTable(
-                name: "Rosters");
+                name: "AbsenceRequests");
 
             migrationBuilder.DropTable(
                 name: "EmployeeBookings");
@@ -6380,22 +7678,49 @@ namespace CrewService.Persistance.Data.Migrations.CrewService
                 name: "RegulatoryQualifications");
 
             migrationBuilder.DropTable(
-                name: "PositionSlots");
+                name: "WorkflowTriggerTypes");
 
             migrationBuilder.DropTable(
-                name: "CraftRoles");
+                name: "AbsenceCodes");
+
+            migrationBuilder.DropTable(
+                name: "PositionSlotInstances");
+
+            migrationBuilder.DropTable(
+                name: "CrewPositions");
 
             migrationBuilder.DropTable(
                 name: "Employees");
 
             migrationBuilder.DropTable(
-                name: "WorkInstances");
+                name: "ShiftInstances");
 
             migrationBuilder.DropTable(
-                name: "Crafts");
+                name: "CraftRoles");
+
+            migrationBuilder.DropTable(
+                name: "Crews");
+
+            migrationBuilder.DropTable(
+                name: "StaffablePositions");
 
             migrationBuilder.DropTable(
                 name: "EmploymentStatuses");
+
+            migrationBuilder.DropTable(
+                name: "WorkInstances");
+
+            migrationBuilder.DropTable(
+                name: "RosterBoards");
+
+            migrationBuilder.DropTable(
+                name: "RequiredPositionsStrategy");
+
+            migrationBuilder.DropTable(
+                name: "Rosters");
+
+            migrationBuilder.DropTable(
+                name: "Crafts");
 
             migrationBuilder.DropTable(
                 name: "Department");
