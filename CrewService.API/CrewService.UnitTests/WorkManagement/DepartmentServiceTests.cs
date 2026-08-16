@@ -2,8 +2,6 @@ using CrewService.Application.WorkManagement;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Employment;
-using CrewService.Domain.Modules.Boards;
-using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Models.Parents;
@@ -43,23 +41,6 @@ public sealed class DepartmentServiceTests : IDisposable
             .UseSqlite(_connection)
             .Options;
         _userContext = new UserAccessDbContext(userOptions);
-    }
-
-    [Fact]
-    public async Task CreateAsync_CreatesDefaultDepartmentReassignmentRule()
-    {
-        var (parentCtrlNbr, railroadCtrlNbr) = await SeedParentAndRailroadAsync(TestContext.Current.CancellationToken);
-
-        var service = BuildService();
-        var department = await service.CreateAsync(parentCtrlNbr, railroadCtrlNbr, "Transportation", "Vertical");
-
-        await using var verifyContext = CreateReadContext();
-        var rule = await verifyContext.Set<DepartmentReassignmentRule>()
-            .SingleOrDefaultAsync(r => r.DepartmentCtrlNbr == department.CtrlNbr, TestContext.Current.CancellationToken);
-
-        Assert.NotNull(rule);
-        Assert.Equal(BoardType.Hangout, rule!.TargetBoardType);
-        Assert.True(rule.IsRequired);
     }
 
     [Fact]

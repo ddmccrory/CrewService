@@ -25,7 +25,8 @@ public sealed class WorkflowTemplateManagementService(
     IDynamicGroupRepository dynamicGroupRepository,
     IDepartmentRepository departmentRepository,
     ICraftRepository craftRepository,
-    ISeniorityStateRepository seniorityStateRepository)
+    ISeniorityStateRepository seniorityStateRepository,
+    IRequiredPositionsStrategyRepository requiredPositionsStrategyRepository)
 {
     public async Task<List<WorkflowTemplateSummary>> GetByRailroadAsync(ControlNumber railroadCtrlNbr, CancellationToken ct = default)
     {
@@ -405,8 +406,19 @@ public sealed class WorkflowTemplateManagementService(
         var metadataAllowedValuesByCode = new Dictionary<string, List<string>>(StringComparer.Ordinal)
         {
             [WorkflowMetadataFieldTypeCodes.NotificationType] = GetNotificationTypeValues(),
-            [WorkflowMetadataFieldTypeCodes.BoardType] = GetBoardTypeValues()
+            [WorkflowMetadataFieldTypeCodes.BoardType] = GetBoardTypeValues(),
+            [WorkflowMetadataFieldTypeCodes.VacancyType] = GetVacancyTypeValues(),
+            [WorkflowMetadataFieldTypeCodes.PositionType] = GetPositionTypeValues(),
+            [WorkflowMetadataFieldTypeCodes.BoardStrategyCriteria] =
+            [
+                WorkflowBoardStrategyCriteriaValues.Satisfied,
+                WorkflowBoardStrategyCriteriaValues.NotSatisfied
+            ]
         };
+
+        var requiredPositionStrategies = await requiredPositionsStrategyRepository.GetAllSystemStrategiesAsync(ct);
+        metadataAllowedValuesByCode[WorkflowMetadataFieldTypeCodes.BoardBulletinStrategy] =
+            GetDistinctNonEmptySorted(requiredPositionStrategies.Select(s => s.Name));
 
         var railroad = await dynamicGroupRepository.GetByCtrlNbrAsync(railroadCtrlNbr, ct);
         var parentCtrlNbr = railroad?.ParentCtrlNbr;
@@ -461,6 +473,21 @@ public sealed class WorkflowTemplateManagementService(
             .ToList();
     }
 
+    private static List<string> GetVacancyTypeValues()
+    {
+        return
+        [
+            "INCUMBENT_REMOVED",
+            "INCUMBENT_VACATED",
+            "BOARD_UNDERSTAFFED"
+        ];
+    }
+
+    private static List<string> GetPositionTypeValues()
+    {
+        return ["B", "C"];
+    }
+
     private static string NormalizeBoardTypeValue(string value)
     {
         return value switch
@@ -502,6 +529,14 @@ public sealed class WorkflowTemplateManagementService(
             WorkflowTriggerTypeCodes.NotificationAccepted =>
             [
                 WorkflowMetadataFieldTypeCodes.NotificationType
+            ],
+            WorkflowTriggerTypeCodes.PositionVacated =>
+            [
+                WorkflowMetadataFieldTypeCodes.VacancyType,
+                WorkflowMetadataFieldTypeCodes.PositionType,
+                WorkflowMetadataFieldTypeCodes.BoardBulletinStrategy,
+                WorkflowMetadataFieldTypeCodes.BoardStrategyCriteria,
+                WorkflowMetadataFieldTypeCodes.CraftName
             ],
             _ => []
         };

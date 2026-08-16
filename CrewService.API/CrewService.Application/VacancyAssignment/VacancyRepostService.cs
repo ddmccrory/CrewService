@@ -1,8 +1,11 @@
 using CrewService.Application.Bulletins;
+using CrewService.Application.Workflows;
+using CrewService.Application.Workflows.Effects;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace CrewService.Application.VacancyAssignment;
@@ -23,10 +26,12 @@ namespace CrewService.Application.VacancyAssignment;
 public sealed class VacancyRepostService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     BulletinsService bulletinsService,
-    ILogger<VacancyRepostService> logger) : IVacancyRepostService
+    ILogger<VacancyRepostService> logger,
+    IServiceProvider? serviceProvider = null) : IVacancyRepostService
 {
     private const string CrewVacatedReason = "INCUMBENT_VACATED";
     private const string BoardUnderstaffedReason = "BOARD_UNDERSTAFFED";
+    private const string IncumbentRemovedReason = "INCUMBENT_REMOVED";
     private const string VacatedTargetCancellationReason = "Cancelled because target position no longer has an incumbent and is being filled through bulletin posting.";
 
     /// <summary>
@@ -37,36 +42,66 @@ public sealed class VacancyRepostService(
     public async Task RepostVacatedPositionAsync(
         ControlNumber staffablePositionCtrlNbr,
         ControlNumber? previousIncumbentCtrlNbr = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool executeWorkflowTrigger = true)
     {
         await CancelMovesForVacatedTargetAsync(staffablePositionCtrlNbr, ct);
 
-        var plan = await BuildRepostPlanAsync(staffablePositionCtrlNbr, ct);
-        if (plan is null)
+        if (executeWorkflowTrigger)
         {
-            // No bulletin resulted from the vacate. For a board slot that means the board is still
-            // adequately staffed (or otherwise not bulletinable), so the now-empty slot is surplus
-            // capacity on a dynamically-sized board — remove it entirely. Crew positions are
-            // structural and are never removed here.
-            await RemoveSurplusBoardSlotIfPresentAsync(staffablePositionCtrlNbr, ct);
+            await TryExecutePositionVacatedWorkflowAsync(
+                staffablePositionCtrlNbr,
+                previousIncumbentCtrlNbr,
+                ct: ct);
             return;
         }
 
-        await bulletinsService.OpenVacancyAsync(
-            workAreaGroupCtrlNbr: plan.WorkAreaGroupCtrlNbr,
-            targetType: plan.TargetType,
-            targetCtrlNbr: staffablePositionCtrlNbr,
-            craftCtrlNbr: plan.CraftCtrlNbr,
-            vacancyReasonCode: plan.VacancyReasonCode,
-            previousIncumbentCtrlNbr: previousIncumbentCtrlNbr,
-            targetName: plan.TargetName,
-            ct: ct);
-
-        if (logger.IsEnabled(LogLevel.Information))
+        var decision = await ResolveRepostDecisionAsync(staffablePositionCtrlNbr, ct);
+        switch (decision.Action)
         {
-            logger.LogInformation(
-                "VacancyRepost: Reposted {TargetType} position {Position} (reason {Reason}).",
-                plan.TargetType, staffablePositionCtrlNbr.Value, plan.VacancyReasonCode);
+            case RepostAction.NoAction:
+                return;
+
+            case RepostAction.OpenVacancyAndBulletin:
+            {
+                var plan = decision.Plan
+                    ?? throw new InvalidOperationException("Open-vacancy repost action requires a repost plan.");
+
+                await bulletinsService.OpenVacancyAsync(
+                    workAreaGroupCtrlNbr: plan.WorkAreaGroupCtrlNbr,
+                    targetType: plan.TargetType,
+                    targetCtrlNbr: staffablePositionCtrlNbr,
+                    craftCtrlNbr: plan.CraftCtrlNbr,
+                    vacancyReasonCode: plan.VacancyReasonCode,
+                    previousIncumbentCtrlNbr: previousIncumbentCtrlNbr,
+                    targetName: plan.TargetName,
+                    ct: ct);
+
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
+                        "VacancyRepost: Reposted {TargetType} position {Position} (reason {Reason}).",
+                        plan.TargetType, staffablePositionCtrlNbr.Value, plan.VacancyReasonCode);
+                }
+
+                return;
+            }
+
+            case RepostAction.PostExistingOpenVacancy:
+            {
+                var vacancyCtrlNbr = decision.ExistingVacancyCtrlNbr
+                    ?? throw new InvalidOperationException("Post-existing-vacancy action requires a vacancy control number.");
+
+                await PostExistingOpenVacancyAsync(vacancyCtrlNbr, staffablePositionCtrlNbr, ct);
+                return;
+            }
+
+            case RepostAction.RemoveSurplusBoardSlot:
+                await RemoveSurplusBoardSlotIfPresentAsync(staffablePositionCtrlNbr, ct);
+                return;
+
+            default:
+                return;
         }
     }
 
@@ -77,11 +112,10 @@ public sealed class VacancyRepostService(
     /// when the vacated position is not a board slot (e.g. a structural crew position).
     /// </summary>
     private async Task RemoveSurplusBoardSlotIfPresentAsync(
+        IOrchestrationUnitOfWork uow,
         ControlNumber staffablePositionCtrlNbr,
         CancellationToken ct)
     {
-        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
-
         var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(staffablePositionCtrlNbr, ct);
         if (board is null)
             return;
@@ -97,14 +131,21 @@ public sealed class VacancyRepostService(
         if (staffablePosition is not null)
             uow.StaffablePositions.Remove(staffablePosition);
 
-        await uow.CommitAsync(ct);
-
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
                 "VacancyRepost: Removed surplus board slot {Position} from board {Board} (board adequately staffed).",
                 staffablePositionCtrlNbr.Value, board.CtrlNbr.Value);
         }
+    }
+
+    private async Task RemoveSurplusBoardSlotIfPresentAsync(
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        await RemoveSurplusBoardSlotIfPresentAsync(uow, staffablePositionCtrlNbr, ct);
+        await uow.CommitAsync(ct);
     }
 
     /// <summary>
@@ -118,9 +159,31 @@ public sealed class VacancyRepostService(
         ControlNumber boardCtrlNbr,
         ControlNumber vacatedStaffablePositionCtrlNbr,
         ControlNumber? previousIncumbentCtrlNbr = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool executeWorkflowTrigger = true,
+        bool enforceUnderstaffedPolicy = true)
     {
         await CancelMovesForVacatedTargetAsync(vacatedStaffablePositionCtrlNbr, ct);
+
+        if (executeWorkflowTrigger)
+        {
+            var workflowExecuted = await TryExecutePositionVacatedWorkflowAsync(
+                vacatedStaffablePositionCtrlNbr,
+                previousIncumbentCtrlNbr,
+                positionTypeOverride: StaffablePositionType.Board,
+                boardCtrlNbr: boardCtrlNbr,
+                ct: ct);
+
+            if (workflowExecuted)
+            {
+                await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+                await RemoveSurplusBoardSlotIfNoOpenVacancyAsync(uow, vacatedStaffablePositionCtrlNbr, ct);
+                await uow.CommitAsync(ct);
+                return;
+            }
+
+            return;
+        }
 
         RepostPlan? plan;
         await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
@@ -132,7 +195,9 @@ public sealed class VacancyRepostService(
             if (board is null)
                 return;
 
-            plan = await BuildBoardRepostPlanAsync(uow, board, vacatedStaffablePositionCtrlNbr, ct);
+            plan = enforceUnderstaffedPolicy
+                ? await BuildBoardRepostPlanAsync(uow, board, vacatedStaffablePositionCtrlNbr, ct)
+                : await BuildBoardRepostPlanWithoutUnderstaffedCheckAsync(uow, board, vacatedStaffablePositionCtrlNbr, ct);
         }
 
         if (plan is null)
@@ -156,62 +221,282 @@ public sealed class VacancyRepostService(
         }
     }
 
-    /// <summary>
-    /// Resolves whether a vacated staffable position should be reposted and, if so, the
-    /// parameters needed to open the vacancy. Returns null when no repost is required
-    /// (position refilled, vacancy already open, board still adequately staffed, or the
-    /// position is not a bulletinable crew/board slot).
-    /// </summary>
-    private async Task<RepostPlan?> BuildRepostPlanAsync(
+    private async Task RemoveSurplusBoardSlotIfNoOpenVacancyAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        if (await HasOpenVacancyAsync(uow, StaffablePositionType.Board, staffablePositionCtrlNbr))
+            return;
+
+        await RemoveSurplusBoardSlotIfPresentAsync(uow, staffablePositionCtrlNbr, ct);
+    }
+
+    private async Task RemoveSurplusBoardSlotIfNoOpenVacancyAsync(
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+        await RemoveSurplusBoardSlotIfNoOpenVacancyAsync(uow, staffablePositionCtrlNbr, ct);
+        await uow.CommitAsync(ct);
+    }
+
+    private async Task<RepostPlan?> BuildBoardRepostPlanWithoutUnderstaffedCheckAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Boards.RosterBoard board,
+        ControlNumber vacatedStaffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        var roster = await uow.Rosters.GetByCtrlNbrAsync(board.RosterCtrlNbr, ct);
+        if (roster is null)
+        {
+            logger.LogWarning(
+                "VacancyRepost: Board {Board} has no roster — cannot resolve work area for repost.",
+                board.CtrlNbr.Value);
+            return null;
+        }
+
+        if (!await HasBulletinRuleAsync(uow, board.CraftCtrlNbr))
+            return null;
+
+        return new RepostPlan(
+            WorkAreaGroupCtrlNbr: roster.WorkAreaGroupCtrlNbr,
+            TargetType: StaffablePositionType.Board,
+            CraftCtrlNbr: board.CraftCtrlNbr,
+            VacancyReasonCode: BoardUnderstaffedReason,
+            TargetName: board.Name);
+    }
+
+    private async Task<bool> TryExecutePositionVacatedWorkflowAsync(
+        ControlNumber staffablePositionCtrlNbr,
+        ControlNumber? previousIncumbentCtrlNbr,
+        string? positionTypeOverride = null,
+        ControlNumber? boardCtrlNbr = null,
+        CancellationToken ct = default)
+    {
+        if (previousIncumbentCtrlNbr is null)
+            return false;
+
+        var workflowRuntimeService = serviceProvider?.GetService<WorkflowRuntimeService>();
+        if (workflowRuntimeService is null)
+            return false;
+
+        var payloadEnvelope = await BuildPositionVacatedWorkflowPayloadAsync(
+            staffablePositionCtrlNbr,
+            previousIncumbentCtrlNbr,
+            positionTypeOverride,
+            boardCtrlNbr,
+            ct);
+        if (payloadEnvelope is null)
+            return false;
+
+        return await workflowRuntimeService.ExecutePositionVacatedAsync(
+            payloadEnvelope.RailroadCtrlNbr,
+            payloadEnvelope.Payload,
+            correlationId: null,
+            ct);
+    }
+
+    private async Task<PositionVacatedWorkflowPayloadEnvelope?> BuildPositionVacatedWorkflowPayloadAsync(
+        ControlNumber staffablePositionCtrlNbr,
+        ControlNumber previousIncumbentCtrlNbr,
+        string? positionTypeOverride,
+        ControlNumber? boardCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+        string? positionType = positionTypeOverride;
+        ControlNumber? craftCtrlNbr = null;
+        ControlNumber? rosterCtrlNbr = null;
+
+        if (string.Equals(positionType, StaffablePositionType.Board, StringComparison.Ordinal)
+            && boardCtrlNbr is not null)
+        {
+            var board = await uow.RosterBoards.GetByCtrlNbrAsync(boardCtrlNbr, ct);
+            craftCtrlNbr = board?.CraftCtrlNbr;
+            rosterCtrlNbr = board?.RosterCtrlNbr;
+        }
+
+        if (craftCtrlNbr is null)
+        {
+            var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(staffablePositionCtrlNbr);
+            if (crewPosition is not null)
+            {
+                positionType = StaffablePositionType.Crew;
+                var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPosition.CraftRoleCtrlNbr, ct);
+                craftCtrlNbr = craftRole?.CraftCtrlNbr;
+            }
+        }
+
+        if (craftCtrlNbr is null)
+        {
+            var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(staffablePositionCtrlNbr, ct);
+            if (board is not null)
+            {
+                positionType = StaffablePositionType.Board;
+                craftCtrlNbr = board.CraftCtrlNbr;
+                rosterCtrlNbr = board.RosterCtrlNbr;
+            }
+        }
+
+        if (craftCtrlNbr is null || string.IsNullOrWhiteSpace(positionType))
+            return null;
+
+        if (rosterCtrlNbr is null)
+        {
+            rosterCtrlNbr = await ResolvePositionVacatedRosterCtrlNbrAsync(
+                uow,
+                previousIncumbentCtrlNbr,
+                craftCtrlNbr,
+                ct);
+        }
+
+        var craft = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr, ct);
+        if (craft is null)
+            return null;
+
+        var existingVacancies = await uow.PositionVacancies.GetByTargetAsync(positionType, staffablePositionCtrlNbr);
+        var vacancyReasonCode = existingVacancies
+            .Where(v => v.Status is "Open" or "Bulletined")
+            .OrderByDescending(v => v.CtrlNbr.Value)
+            .Select(v => v.VacancyReasonCode)
+            .FirstOrDefault() ?? IncumbentRemovedReason;
+
+        var payload = new WorkflowPositionVacatedRuntimePayload(
+            StaffablePositionCtrlNbr: staffablePositionCtrlNbr,
+            CraftCtrlNbr: craftCtrlNbr,
+            PositionTypeCode: positionType,
+            VacancyReasonCode: vacancyReasonCode,
+            PreviousIncumbentCtrlNbr: previousIncumbentCtrlNbr,
+            BoardCtrlNbr: boardCtrlNbr,
+            RosterCtrlNbr: rosterCtrlNbr);
+
+        if (craft.DynamicGroupCtrlNbr is null)
+            return null;
+
+        return new PositionVacatedWorkflowPayloadEnvelope(craft.DynamicGroupCtrlNbr, payload);
+    }
+
+    private static async Task<ControlNumber?> ResolvePositionVacatedRosterCtrlNbrAsync(
+        IOrchestrationUnitOfWork uow,
+        ControlNumber employeeCtrlNbr,
+        ControlNumber craftCtrlNbr,
+        CancellationToken ct)
+    {
+        var seniorityRows = await uow.Seniority.GetByEmployeeCtrlNbrAsync(employeeCtrlNbr);
+        if (seniorityRows.Count == 0)
+            return null;
+
+        var rosterCtrlNbrs = seniorityRows
+            .Select(s => s.RosterCtrlNbr)
+            .Distinct()
+            .ToList();
+        if (rosterCtrlNbrs.Count == 0)
+            return null;
+
+        var rosters = await uow.Rosters.GetByCtrlNbrsAsync(rosterCtrlNbrs, ct);
+        var matchingRosterCtrlNbrs = rosters
+            .Where(r => r.CraftCtrlNbr == craftCtrlNbr)
+            .Select(r => r.CtrlNbr)
+            .ToHashSet();
+        if (matchingRosterCtrlNbrs.Count == 0)
+            return null;
+
+        var selectedSeniority = seniorityRows
+            .Where(s => matchingRosterCtrlNbrs.Contains(s.RosterCtrlNbr))
+            .OrderByDescending(s => s.LastActiveRoster)
+            .ThenByDescending(s => s.RosterDate)
+            .FirstOrDefault();
+
+        return selectedSeniority?.RosterCtrlNbr;
+    }
+
+    private async Task<RepostDecision> ResolveRepostDecisionAsync(
         ControlNumber staffablePositionCtrlNbr,
         CancellationToken ct)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
 
-        // Refill guard: the position currently has an active assignment — nothing to repost.
         var activeAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(staffablePositionCtrlNbr);
         if (activeAssignment is not null)
-            return null;
+            return new RepostDecision(RepostAction.NoAction);
 
-        // Crew position path.
         var crewPosition = await uow.CrewPositions.GetByStaffablePositionAsync(staffablePositionCtrlNbr);
         if (crewPosition is not null)
+            return await ResolveCrewRepostDecisionAsync(uow, crewPosition, staffablePositionCtrlNbr, ct);
+
+        var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(staffablePositionCtrlNbr, ct);
+        if (board is not null)
+            return await ResolveBoardRepostDecisionAsync(uow, board, staffablePositionCtrlNbr, ct);
+
+        return new RepostDecision(RepostAction.NoAction);
+    }
+
+    private async Task<RepostDecision> ResolveCrewRepostDecisionAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Crews.CrewPosition crewPosition,
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        var existingVacancies = await uow.PositionVacancies.GetByTargetAsync(StaffablePositionType.Crew, staffablePositionCtrlNbr);
+        var existingBulletinedVacancy = existingVacancies.FirstOrDefault(v => v.Status == "Bulletined");
+        if (existingBulletinedVacancy is not null)
+            return new RepostDecision(RepostAction.NoAction);
+
+        var openIncumbentRemovedVacancy = existingVacancies
+            .FirstOrDefault(v => v.Status == "Open" && v.VacancyReasonCode == IncumbentRemovedReason);
+        if (openIncumbentRemovedVacancy is not null)
         {
-            if (await HasOpenVacancyAsync(uow, StaffablePositionType.Crew, staffablePositionCtrlNbr))
-                return null;
+            if (!await HasBulletinRuleAsync(uow, openIncumbentRemovedVacancy.CraftCtrlNbr))
+                return new RepostDecision(RepostAction.NoAction);
 
-            var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPosition.CraftRoleCtrlNbr, ct);
-            var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct);
-            if (craftRole is null || crew is null)
-            {
-                logger.LogWarning(
-                    "VacancyRepost: Crew position {Position} missing craft role or crew — cannot repost.",
-                    staffablePositionCtrlNbr.Value);
-                return null;
-            }
+            return new RepostDecision(
+                RepostAction.PostExistingOpenVacancy,
+                ExistingVacancyCtrlNbr: openIncumbentRemovedVacancy.CtrlNbr);
+        }
 
-            if (!await HasBulletinRuleAsync(uow, craftRole.CraftCtrlNbr))
-                return null;
+        var existingOpenVacancy = existingVacancies.FirstOrDefault(v => v.Status == "Open");
+        if (existingOpenVacancy is not null)
+            return new RepostDecision(RepostAction.NoAction);
 
-            return new RepostPlan(
+        var craftRole = await uow.CraftRoles.GetByCtrlNbrAsync(crewPosition.CraftRoleCtrlNbr, ct);
+        var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct);
+        if (craftRole is null || crew is null)
+        {
+            logger.LogWarning(
+                "VacancyRepost: Crew position {Position} missing craft role or crew — cannot repost.",
+                staffablePositionCtrlNbr.Value);
+            return new RepostDecision(RepostAction.NoAction);
+        }
+
+        if (!await HasBulletinRuleAsync(uow, craftRole.CraftCtrlNbr))
+            return new RepostDecision(RepostAction.NoAction);
+
+        return new RepostDecision(
+            RepostAction.OpenVacancyAndBulletin,
+            Plan: new RepostPlan(
                 WorkAreaGroupCtrlNbr: crew.WorkAreaCtrlNbr,
                 TargetType: StaffablePositionType.Crew,
                 CraftCtrlNbr: craftRole.CraftCtrlNbr,
                 VacancyReasonCode: CrewVacatedReason,
-                TargetName: VacancyTargetName.ForCrewPosition(crew, craftRole));
-        }
+                TargetName: VacancyTargetName.ForCrewPosition(crew, craftRole)));
+    }
 
-        // Board position path: only repost when occupancy is below the board's RequiredPositions.
-        var board = await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(staffablePositionCtrlNbr, ct);
-        if (board is not null)
-        {
-            if (await HasOpenVacancyAsync(uow, StaffablePositionType.Board, staffablePositionCtrlNbr))
-                return null;
+    private async Task<RepostDecision> ResolveBoardRepostDecisionAsync(
+        IOrchestrationUnitOfWork uow,
+        Domain.Modules.Boards.RosterBoard board,
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        if (await HasOpenVacancyAsync(uow, StaffablePositionType.Board, staffablePositionCtrlNbr))
+            return new RepostDecision(RepostAction.NoAction);
 
-            return await BuildBoardRepostPlanAsync(uow, board, staffablePositionCtrlNbr, ct);
-        }
+        var repostPlan = await BuildBoardRepostPlanAsync(uow, board, staffablePositionCtrlNbr, ct);
+        if (repostPlan is not null)
+            return new RepostDecision(RepostAction.OpenVacancyAndBulletin, Plan: repostPlan);
 
-        return null;
+        return new RepostDecision(RepostAction.RemoveSurplusBoardSlot);
     }
 
     /// <summary>
@@ -276,7 +561,8 @@ public sealed class VacancyRepostService(
         {
             try
             {
-                await RepostVacatedPositionAsync(staffablePositionCtrlNbr, ct: ct);
+                await RepostVacatedPositionAsync(staffablePositionCtrlNbr, ct: ct, executeWorkflowTrigger: false);
+
                 reposted++;
             }
             catch (Exception ex)
@@ -359,6 +645,77 @@ public sealed class VacancyRepostService(
         return true;
     }
 
+    private async Task PostExistingOpenVacancyAsync(
+        ControlNumber vacancyCtrlNbr,
+        ControlNumber staffablePositionCtrlNbr,
+        CancellationToken ct)
+    {
+        DateTime? opensUtc = null;
+        DateTime? closesUtc = null;
+        DateTime? effectiveUtc = null;
+
+        await using (var uow = await uowFactory.CreateAsync(cancellationToken: ct))
+        {
+            var vacancy = await uow.PositionVacancies.GetByCtrlNbrAsync(vacancyCtrlNbr, ct);
+            if (vacancy is null
+                || vacancy.Status != "Open"
+                || vacancy.VacancyReasonCode != IncumbentRemovedReason)
+            {
+                return;
+            }
+
+            var rule = await uow.BulletinRules.GetByCraftAsync(vacancy.CraftCtrlNbr);
+            if (rule is null)
+            {
+                logger.LogWarning(
+                    "VacancyRepost: No BulletinRule configured for craft {Craft} — cannot bulletin existing incumbent-removed vacancy {Vacancy}.",
+                    vacancy.CraftCtrlNbr.Value,
+                    vacancy.CtrlNbr.Value);
+                return;
+            }
+
+            var workArea = await uow.DynamicGroups.GetByCtrlNbrAsync(vacancy.WorkAreaGroupCtrlNbr, ct);
+            var tz = ResolveTimeZone(workArea?.TimeZoneId);
+            var postingWindow = rule.CalculateBidWindow(DateTime.UtcNow, tz);
+            opensUtc = postingWindow.Opens;
+            closesUtc = postingWindow.Closes;
+            effectiveUtc = postingWindow.Effective;
+        }
+
+        if (!opensUtc.HasValue || !closesUtc.HasValue || !effectiveUtc.HasValue)
+            return;
+
+        await bulletinsService.PostBulletinForVacancyAsync(
+            vacancyCtrlNbr,
+            opensUtc.Value,
+            closesUtc.Value,
+            effectiveUtc.Value,
+            ct);
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "VacancyRepost: Posted bulletin for existing incumbent-removed vacancy {Vacancy} on crew position {Position}.",
+                vacancyCtrlNbr.Value,
+                staffablePositionCtrlNbr.Value);
+        }
+    }
+
+    private static TimeZoneInfo? ResolveTimeZone(string? timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            return null;
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return null;
+        }
+    }
+
     private async Task CancelMovesForVacatedTargetAsync(ControlNumber targetPositionCtrlNbr, CancellationToken ct)
     {
         await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
@@ -395,4 +752,21 @@ public sealed class VacancyRepostService(
         ControlNumber CraftCtrlNbr,
         string VacancyReasonCode,
         string TargetName);
+
+    private enum RepostAction
+    {
+        NoAction,
+        OpenVacancyAndBulletin,
+        PostExistingOpenVacancy,
+        RemoveSurplusBoardSlot
+    }
+
+    private sealed record RepostDecision(
+        RepostAction Action,
+        RepostPlan? Plan = null,
+        ControlNumber? ExistingVacancyCtrlNbr = null);
+
+    private sealed record PositionVacatedWorkflowPayloadEnvelope(
+        ControlNumber RailroadCtrlNbr,
+        WorkflowPositionVacatedRuntimePayload Payload);
 }

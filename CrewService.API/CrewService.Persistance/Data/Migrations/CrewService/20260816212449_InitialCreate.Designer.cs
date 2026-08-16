@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CrewService.Persistance.Data.Migrations.CrewService
 {
     [DbContext(typeof(CrewServiceDbContext))]
-    [Migration("20260816130917_InitialCreate")]
+    [Migration("20260816212449_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

@@ -8,10 +8,13 @@ using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
+using CrewService.Domain.Modules.Workflows;
 using CrewService.Domain.ValueObjects;
+using CrewService.Application.Workflows;
 using CrewService.Persistance.Data;
 using CrewService.UnitTests.Fixtures;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Xunit;
 
 namespace CrewService.UnitTests.RosterBoardOps;
@@ -74,7 +77,7 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
 
         var craft = Craft.Create(
             null,
-            workArea.CtrlNbr,
+            railroad.CtrlNbr,
             "Engineer",
             "Engineers",
             1,
@@ -129,9 +132,79 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
         ctx.Employees.Add(employee2);
         await ctx.SaveChangesAsync(ct);
 
+        await SeedPositionVacatedWorkflowAsync(ctx, railroad.CtrlNbr, ct);
+
         return new Fixture(
             parent.CtrlNbr, railroad.CtrlNbr, workArea.CtrlNbr, department.CtrlNbr, craft.CtrlNbr, roster.CtrlNbr,
             staticStrategy.CtrlNbr, employee1.CtrlNbr, employee2.CtrlNbr);
+    }
+
+    private static async Task SeedPositionVacatedWorkflowAsync(
+        CrewServiceDbContext ctx,
+        ControlNumber railroadCtrlNbr,
+        CancellationToken ct)
+    {
+        var triggerTypeCtrlNbr = await ctx.Set<WorkflowTriggerType>()
+            .Where(t => t.Code == WorkflowTriggerTypeCodes.PositionVacated)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var createBulletinEffectTypeCtrlNbr = await ctx.Set<WorkflowEffectType>()
+            .Where(t => t.Code == WorkflowEffectTypeCodes.CreateBulletin)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var existingTemplate = await ctx.Set<WorkflowTemplate>()
+            .FirstOrDefaultAsync(
+                t => t.RailroadCtrlNbr == railroadCtrlNbr
+                     && t.TriggerTypeCtrlNbr == triggerTypeCtrlNbr
+                     && t.Name == "Position Vacated",
+                ct);
+        if (existingTemplate is not null)
+            return;
+
+        var template = WorkflowTemplate.Create(
+            railroadCtrlNbr,
+            name: "Position Vacated",
+            triggerTypeCtrlNbr,
+            isEnabled: true);
+        ctx.Set<WorkflowTemplate>().Add(template);
+        await ctx.SaveChangesAsync(ct);
+
+        var definition = new WorkflowDefinition(
+            TriggerTypeCtrlNbr: triggerTypeCtrlNbr,
+            TriggerConditionGroupOperator: "ALL",
+            TriggerConditions: [],
+            Steps:
+            [
+                new WorkflowStepDefinition(
+                    CtrlNbr: ControlNumber.Create(),
+                    Order: 1,
+                    Name: "Create Bulletin",
+                    IsEnabled: true,
+                    FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                    ConditionGroupOperator: "ALL",
+                    Conditions: [],
+                    Effects:
+                    [
+                        new WorkflowEffectDefinition(
+                            CtrlNbr: ControlNumber.Create(),
+                            Order: 1,
+                            IsEnabled: true,
+                            EffectTypeCtrlNbr: createBulletinEffectTypeCtrlNbr,
+                            Options: new Dictionary<string, string>())
+                    ])
+            ]);
+
+        var version = WorkflowVersion.Create(
+            workflowTemplateCtrlNbr: template.CtrlNbr,
+            versionNumber: 1,
+            definitionJson: JsonSerializer.Serialize(definition),
+            notes: "seed",
+            status: WorkflowVersionStatus.Published);
+
+        ctx.Set<WorkflowVersion>().Add(version);
+        await ctx.SaveChangesAsync(ct);
     }
 
     /// <summary>
@@ -172,6 +245,53 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
         return await uow.PositionVacancies.GetByWorkAreaAsync(workAreaCtrlNbr);
     }
 
+    private async Task SeedShiftBoardSlotReferenceAsync(
+        ControlNumber workAreaCtrlNbr,
+        ControlNumber departmentCtrlNbr,
+        ControlNumber boardCtrlNbr,
+        ControlNumber boardPositionCtrlNbr,
+        ControlNumber employeeCtrlNbr,
+        CancellationToken ct)
+    {
+        await using var ctx = _host.CreateReadContext();
+
+        var workInstance = WorkInstance.Create(
+            assignmentGroupCtrlNbr: null,
+            workAreaGroupCtrlNbr: workAreaCtrlNbr,
+            startUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            endUtc: new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc),
+            callTimeUtc: null);
+        var shiftDefinition = ShiftDefinition.Create(
+            workAreaGroupCtrlNbr: workAreaCtrlNbr,
+            shiftCode: "D1",
+            displayName: "Day 1",
+            displayOrder: 1,
+            isActive: true);
+        var shiftInstance = ShiftInstance.Create(
+            workInstanceCtrlNbr: workInstance.CtrlNbr,
+            shiftDefinitionCtrlNbr: shiftDefinition.CtrlNbr,
+            shiftCode: "D1",
+            shiftDisplayName: "Day 1",
+            departmentCtrlNbr: departmentCtrlNbr,
+            departmentName: "Transportation");
+
+        shiftInstance.AddBoardSlot(
+            rosterBoardCtrlNbr: boardCtrlNbr,
+            rosterBoardPositionCtrlNbr: boardPositionCtrlNbr,
+            employeeCtrlNbr: employeeCtrlNbr,
+            boardOrder: 1,
+            callSequence: 1,
+            boardName: "Engineer Extra Board",
+            employeeName: "Employee One");
+
+        ctx.Set<WorkInstance>().Add(workInstance);
+        ctx.Set<ShiftDefinition>().Add(shiftDefinition);
+        await ctx.SaveChangesAsync(ct);
+
+        ctx.Set<ShiftInstance>().Add(shiftInstance);
+        await ctx.SaveChangesAsync(ct);
+    }
+
     // ── Tests ───────────────────────────────────────────────────────────────
 
     [Fact]
@@ -209,5 +329,43 @@ public sealed class StaticRequiredPositionsVacateTests : IDisposable
         Assert.Equal("BOARD_UNDERSTAFFED", vacancy.VacancyReasonCode);
         Assert.Equal(StaffablePositionType.Board, vacancy.TargetType);
         Assert.Equal(positionToRemove.StaffablePositionCtrlNbr, vacancy.TargetCtrlNbr);
+    }
+
+    [Fact]
+    public async Task RemoveBoardPosition_WithBoardSlotReference_SoftDeletesPositionWithoutFkViolation()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var f = await SeedAsync(ct);
+        var boardCtrlNbr = await SeedBoardWithTwoMembersAsync(f, requiredPositions: 20, ct);
+
+        var board = await GetBoardAsync(boardCtrlNbr, ct);
+        var positionToRemove = board.Positions.Single(p => p.EmployeeCtrlNbr == f.Employee1CtrlNbr);
+
+        await SeedShiftBoardSlotReferenceAsync(
+            f.WorkAreaCtrlNbr,
+            f.DepartmentCtrlNbr,
+            boardCtrlNbr,
+            positionToRemove.CtrlNbr,
+            f.Employee1CtrlNbr,
+            ct);
+
+        await _host.RosterBoards.RemoveRosterBoardPositionAsync(positionToRemove.CtrlNbr, ct);
+
+        await using var ctx = _host.CreateReadContext();
+
+        var removedPosition = await ctx.Set<RosterBoardPosition>()
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(p => p.CtrlNbr == positionToRemove.CtrlNbr, ct);
+
+        Assert.NotNull(removedPosition);
+        Assert.True(removedPosition!.IsDeleted);
+
+        var activePosition = await ctx.Set<RosterBoardPosition>()
+            .SingleOrDefaultAsync(p => p.CtrlNbr == positionToRemove.CtrlNbr, ct);
+        Assert.Null(activePosition);
+
+        var boardSlot = await ctx.Set<BoardSlotInstance>()
+            .SingleOrDefaultAsync(s => s.RosterBoardPositionCtrlNbr == positionToRemove.CtrlNbr, ct);
+        Assert.NotNull(boardSlot);
     }
 }

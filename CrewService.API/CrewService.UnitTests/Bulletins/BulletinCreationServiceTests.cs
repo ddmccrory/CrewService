@@ -1,6 +1,5 @@
 using CrewService.Application.Crews;
 using CrewService.Application.Notifications;
-using CrewService.Application.Policies;
 using CrewService.Application.TenantConfig;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Domain.Interfaces;
@@ -73,9 +72,6 @@ public class BulletinCreationServiceTests
             vacationAssignmentType: 0,
             departmentCtrlNbr: DepartmentCtrlNbr);
 
-    private static DepartmentReassignmentRule MakeDepartmentRule() =>
-        DepartmentReassignmentRule.Create(DepartmentCtrlNbr, BoardType.Hangout, isRequired: true);
-
     private static CrewPosition MakeCrewPosition(ControlNumber staffablePositionCtrlNbr) =>
         CrewPosition.Create(CrewCtrlNbr, CraftRoleCtrlNbr, 1, staffablePositionCtrlNbr);
 
@@ -86,8 +82,6 @@ public class BulletinCreationServiceTests
         new(
             new FakeUowFactory(uow),
             repost,
-            new DepartmentReassignmentService(
-                TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow))),
             TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
             NullLogger<CrewsAppService>.Instance);
 
@@ -98,7 +92,7 @@ public class BulletinCreationServiceTests
     {
         var uow = new FakeOrchestrationUnitOfWork(
             bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
-            craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule());
+            craft: MakeCraft());
         var sut = BuildService(uow);
 
         await sut.CreateCrewPositionAsync(CrewCtrlNbr.Value, CraftRoleCtrlNbr.Value, 1,
@@ -114,7 +108,7 @@ public class BulletinCreationServiceTests
     {
         var uow = new FakeOrchestrationUnitOfWork(
             bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
-            craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule());
+            craft: MakeCraft());
         var sut = BuildService(uow);
 
         await sut.CreateCrewPositionAsync(CrewCtrlNbr.Value, CraftRoleCtrlNbr.Value, 1,
@@ -128,7 +122,7 @@ public class BulletinCreationServiceTests
     {
         var uow = new FakeOrchestrationUnitOfWork(
             bulletinRule: null, craftRole: MakeCraftRole(), crew: MakeCrew(),
-            craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule());
+            craft: MakeCraft());
         var sut = BuildService(uow);
 
         await sut.CreateCrewPositionAsync(CrewCtrlNbr.Value, CraftRoleCtrlNbr.Value, 1,
@@ -150,7 +144,7 @@ public class BulletinCreationServiceTests
         var assignment  = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var repost = new RecordingVacancyRepostService();
@@ -178,7 +172,7 @@ public class BulletinCreationServiceTests
         var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var sut = BuildService(uow);
@@ -197,7 +191,7 @@ public class BulletinCreationServiceTests
         var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(),
             crewPosition: crewPos, incumbency: incumbency);
 
         var sut = BuildService(uow);
@@ -220,7 +214,7 @@ public class BulletinCreationServiceTests
         var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
 
         var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(),
             crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
 
         var sut = BuildService(uow);
@@ -229,88 +223,6 @@ public class BulletinCreationServiceTests
             TestContext.Current.CancellationToken);
 
         Assert.Contains(assignment, uow.FakePositionAssignments.RemovedEntities);
-    }
-
-    [Fact]
-    public async Task EndCrewIncumbency_WithDepartmentRule_ReassignsToHangoutBoard()
-    {
-        var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
-        var crewPos = MakeCrewPosition(staffPos.CtrlNbr);
-        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
-        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
-
-        var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
-            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
-
-        var sut = BuildService(uow);
-
-        await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken);
-
-        Assert.Contains(uow.FakePositionAssignments.AddedEntities, a =>
-            a.EmployeeCtrlNbr == EmployeeCtrlNbr && a.AssignmentType == PositionAssignmentType.Board);
-    }
-
-    [Fact]
-    public async Task EndCrewIncumbency_WithDepartmentRule_CreatesBoardPlacementNotification()
-    {
-        var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
-        var crewPos = MakeCrewPosition(staffPos.CtrlNbr);
-        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
-        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
-
-        var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: MakeDepartmentRule(),
-            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
-
-        var repost = new RecordingVacancyRepostService();
-        var notifications = new EmployeeNotificationService(
-            NullLogger<EmployeeNotificationService>.Instance,
-            new FixedRailroadResolver(ControlNumber.Create(999)),
-            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
-        var sut = new CrewsAppService(
-            new FakeUowFactory(uow),
-            repost,
-            new DepartmentReassignmentService(
-                TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
-                notifications),
-            TestCallSheetVacancyProjectionSyncFactory.Create(new FakeUowFactory(uow)),
-            NullLogger<CrewsAppService>.Instance);
-
-        await sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken);
-
-        var notification = Assert.Single(uow.FakeEmployeeNotifications.AddedEntities);
-        Assert.Equal(EmployeeCtrlNbr, notification.EmployeeCtrlNbr);
-        Assert.Equal(NotificationCategories.BoardPlacement, notification.Category);
-    }
-
-    [Fact]
-    public async Task EndCrewIncumbency_WithoutDepartmentRule_Throws()
-    {
-        var staffPos = StaffablePosition.Create(StaffablePositionType.Crew);
-        var crewPos = MakeCrewPosition(staffPos.CtrlNbr);
-        var incumbency = CrewIncumbency.Create(crewPos.CtrlNbr, EmployeeCtrlNbr, DateTime.UtcNow.AddDays(-1));
-        var assignment = PositionAssignment.Create(staffPos.CtrlNbr, EmployeeCtrlNbr, PositionAssignmentType.Direct, crewPos.CtrlNbr);
-
-        var uow = new FakeOrchestrationUnitOfWork(
-            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(), craft: MakeCraft(), departmentReassignmentRule: null,
-            crewPosition: crewPos, incumbency: incumbency, positionAssignment: assignment);
-
-        var sut = BuildService(uow);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.EndCrewIncumbencyAsync(incumbency.CtrlNbr, DateTime.UtcNow, TestContext.Current.CancellationToken));
-    }
-
-    private sealed class FixedRailroadResolver(ControlNumber railroadCtrlNbr) : IRailroadResolver
-    {
-        public Task<ControlNumber?> ResolveFromWorkAreaAsync(
-            IOrchestrationUnitOfWork uow,
-            ControlNumber workAreaGroupCtrlNbr,
-            CancellationToken ct = default) => Task.FromResult<ControlNumber?>(railroadCtrlNbr);
-
-        public ControlNumber? ResolveFromGroup(DynamicGroup? group)
-            => railroadCtrlNbr;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -373,7 +285,8 @@ public class BulletinCreationServiceTests
         public Task RepostVacatedPositionAsync(
             ControlNumber staffablePositionCtrlNbr,
             ControlNumber? previousIncumbentCtrlNbr = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            bool executeWorkflowTrigger = true)
         {
             RepostedPositions.Add(staffablePositionCtrlNbr);
             return Task.CompletedTask;
@@ -383,7 +296,9 @@ public class BulletinCreationServiceTests
             ControlNumber boardCtrlNbr,
             ControlNumber vacatedStaffablePositionCtrlNbr,
             ControlNumber? previousIncumbentCtrlNbr = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            bool executeWorkflowTrigger = true,
+            bool enforceUnderstaffedPolicy = true)
         {
             RepostedPositions.Add(vacatedStaffablePositionCtrlNbr);
             return Task.CompletedTask;
@@ -590,7 +505,7 @@ public class BulletinCreationServiceTests
             CraftRole?           craftRole,
             Crew?                crew,
             Craft?               craft,
-            DepartmentReassignmentRule? departmentReassignmentRule,
+            DepartmentReassignmentRule? departmentReassignmentRule = null,
             CrewPosition?        crewPosition      = null,
             CrewIncumbency?      incumbency        = null,
             PositionAssignment?  positionAssignment = null)

@@ -9,7 +9,6 @@ using CrewService.Domain.Models.Employees;
 using CrewService.Domain.Models.Seniority;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
-using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.ValueObjects;
@@ -21,7 +20,6 @@ public sealed class RosterBoardAppService(
     RequirementEvaluationService requirementEvaluationService,
     IRequiredPositionsFormulaRegistry formulaRegistry,
     VacancyAssignment.IVacancyRepostService vacancyRepostService,
-    DepartmentReassignmentService departmentReassignmentService,
     EmployeeNotificationService notifications,
     CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
@@ -318,6 +316,7 @@ public sealed class RosterBoardAppService(
         bool reassignEmployee,
         CancellationToken ct = default)
     {
+        _ = reassignEmployee;
         var boards = await uow.RosterBoards.GetAllAsync(ct);
         var board = boards.FirstOrDefault(b => b.Positions.Any(p => p.CtrlNbr == positionCtrlNbr))
             ?? throw new KeyNotFoundException($"Position {positionCtrlNbr.Value} not found on any board.");
@@ -329,23 +328,6 @@ public sealed class RosterBoardAppService(
         var vacatedStaffablePositionCtrlNbr = position.StaffablePositionCtrlNbr;
         var previousIncumbentCtrlNbr = position.EmployeeCtrlNbr;
         var isExtraBoard = board.BoardType == BoardType.ExtraBoard && board.CraftCtrlNbr is not null;
-
-        var craftCtrlNbr = board.CraftCtrlNbr
-            ?? throw new InvalidOperationException($"Board {board.CtrlNbr.Value} is missing a craft.");
-
-        var craft = await uow.Crafts.GetByCtrlNbrAsync(craftCtrlNbr, ct)
-            ?? throw new InvalidOperationException($"Craft {craftCtrlNbr.Value} not found for board {board.CtrlNbr.Value}.");
-        if (craft.DepartmentCtrlNbr is null)
-            throw new InvalidOperationException($"Craft {craft.CtrlNbr.Value} is missing a department; department reassignment is required.");
-
-        if (reassignEmployee)
-        {
-            await departmentReassignmentService.ReassignEmployeeAsync(
-                uow,
-                position.EmployeeCtrlNbr,
-                craft.DepartmentCtrlNbr,
-                ct);
-        }
 
         board.RemovePosition(position);
         uow.RosterBoards.Update(board);

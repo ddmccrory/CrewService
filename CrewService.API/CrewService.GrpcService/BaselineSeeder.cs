@@ -5,6 +5,7 @@ using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Employees;
 using CrewService.Domain.Modules.FraCompliance;
 using CrewService.Domain.Modules.Notifications;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Infrastructure.Models.UserAccount;
 using CrewService.Domain.Modules.Workflows;
@@ -108,7 +109,6 @@ internal static class BaselineSeeder
         ("admin/seniority-move-policies", "Seniority Move Policies", "Administration", "/admin/seniority-move-policies"),
         ("admin/absence-approval-policy", "Absence Approval Policy", "Administration", "/admin/absence-approval-policy"),
         ("admin/call-sheet-rules", "Call Sheet Rules", "Administration", "/admin/call-sheet-rules"),
-        ("admin/department-reassignment-rules", "Department Reassignment Rules", "Administration", "/admin/department-reassignment-rules"),
         ("employees/scheduled-state-changes", "Scheduled State Changes", "Employee Management", "/employees/scheduled-state-changes")
     ];
 
@@ -185,7 +185,6 @@ internal static class BaselineSeeder
         ["admin/seniority-move-policies"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/absence-approval-policy"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["admin/call-sheet-rules"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
-        ["admin/department-reassignment-rules"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"],
         ["employees/scheduled-state-changes"] = ["SystemAdmin", "ParentAdmin", "RailroadAdmin"]
     };
 
@@ -216,6 +215,7 @@ internal static class BaselineSeeder
         await SeedCreateXbSeniorityMoveWorkflowAsync(sp);
         await SeedSeniorityStatusChangedWorkflowAsync(sp);
         await SeedVacancyPlaceOnDutyWorkflowAsync(sp);
+        await SeedPositionVacatedWorkflowAsync(sp);
     }
 
     private static async Task SeedWorkflowReferenceDataAsync(IServiceProvider sp)
@@ -229,6 +229,7 @@ internal static class BaselineSeeder
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged);
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested, TriggerTypes.VacancyPlaceOnDutyRequested);
         await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.NotificationAccepted, TriggerTypes.NotificationAccepted);
+        await EnsureTriggerTypeAsync(WorkflowTriggerTypeCodes.PositionVacated, TriggerTypes.PositionVacated);
 
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing);
@@ -236,6 +237,7 @@ internal static class BaselineSeeder
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.PlaceOnDuty, WorkflowEffectTypes.PlaceOnDuty);
         await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.CreateSeniorityMove, WorkflowEffectTypes.CreateSeniorityMove);
+        await EnsureEffectTypeAsync(WorkflowEffectTypeCodes.CreateBulletin, WorkflowEffectTypes.CreateBulletin);
 
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.EqualsOperator, "Equals");
         await EnsureOperatorTypeAsync(WorkflowOperatorTypeCodes.NotEquals, "Does Not Equal");
@@ -249,6 +251,10 @@ internal static class BaselineSeeder
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.NotificationType, "Notification Type");
         await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.BoardType, "Board Type");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.VacancyType, "Vacancy Type");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.PositionType, "Position Type");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.BoardBulletinStrategy, "Board Bulletin Strategy");
+        await EnsureMetadataFieldTypeAsync(WorkflowMetadataFieldTypeCodes.BoardStrategyCriteria, "Board Strategy Criteria");
 
         async Task EnsureTriggerTypeAsync(string code, string name)
         {
@@ -387,6 +393,164 @@ internal static class BaselineSeeder
                 versionNumber: nextVersion,
                 definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
                 notes: "Seeded default Vacancy Place On Duty workflow",
+                status: WorkflowVersionStatus.Published);
+
+            await versionRepo.AddAsync(version);
+        }
+    }
+
+    private static async Task SeedPositionVacatedWorkflowAsync(IServiceProvider sp)
+    {
+        var groupRepo = sp.GetRequiredService<IDynamicGroupRepository>();
+        var templateRepo = sp.GetRequiredService<IWorkflowTemplateRepository>();
+        var versionRepo = sp.GetRequiredService<IWorkflowVersionRepository>();
+        var triggerTypeRepo = sp.GetRequiredService<IWorkflowTriggerTypeRepository>();
+        var effectTypeRepo = sp.GetRequiredService<IWorkflowEffectTypeRepository>();
+        var operatorTypeRepo = sp.GetRequiredService<IWorkflowOperatorTypeRepository>();
+        var metadataFieldTypeRepo = sp.GetRequiredService<IWorkflowMetadataFieldTypeRepository>();
+
+        var triggerType = await triggerTypeRepo.GetByCodeAsync(WorkflowTriggerTypeCodes.PositionVacated);
+        var addToRosterBoardEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.AddToRosterBoard);
+        var createBulletinEffectType = await effectTypeRepo.GetByCodeAsync(WorkflowEffectTypeCodes.CreateBulletin);
+        var equalsOperatorType = await operatorTypeRepo.GetByCodeAsync(WorkflowOperatorTypeCodes.EqualsOperator);
+        var positionTypeMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.PositionType);
+        var boardStrategyMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.BoardBulletinStrategy);
+        var boardStrategyCriteriaMetadataFieldType = await metadataFieldTypeRepo.GetByCodeAsync(WorkflowMetadataFieldTypeCodes.BoardStrategyCriteria);
+
+        if (triggerType is null
+            || addToRosterBoardEffectType is null
+            || createBulletinEffectType is null
+            || equalsOperatorType is null
+            || positionTypeMetadataFieldType is null
+            || boardStrategyMetadataFieldType is null
+            || boardStrategyCriteriaMetadataFieldType is null)
+            return;
+
+        var railroads = await groupRepo.GetByGroupTypeNameAsync("Railroad");
+
+        foreach (var railroad in railroads)
+        {
+            var existingTemplate = (await templateRepo.GetByRailroadAndTriggerTypeAsync(railroad.CtrlNbr, triggerType.CtrlNbr))
+                .FirstOrDefault(w => string.Equals(w.Name, "Position Vacated", StringComparison.OrdinalIgnoreCase));
+
+            if (existingTemplate is null)
+            {
+                existingTemplate = WorkflowTemplate.Create(
+                    railroad.CtrlNbr,
+                    name: "Position Vacated",
+                    triggerTypeCtrlNbr: triggerType.CtrlNbr,
+                    isEnabled: true);
+
+                await templateRepo.AddAsync(existingTemplate);
+            }
+            else if (!string.Equals(existingTemplate.Name, "Position Vacated", StringComparison.Ordinal))
+            {
+                existingTemplate.UpdateDefinition("Position Vacated", existingTemplate.TriggerTypeCtrlNbr, existingTemplate.IsEnabled);
+                await templateRepo.UpdateAsync(existingTemplate);
+            }
+
+            var existingPublished = await versionRepo.GetLatestPublishedByRailroadAndTriggerAsync(
+                railroad.CtrlNbr,
+                triggerType.CtrlNbr);
+
+            if (existingPublished is not null && existingPublished.WorkflowTemplateCtrlNbr == existingTemplate.CtrlNbr)
+                continue;
+
+            var definition = new WorkflowDefinition(
+                TriggerTypeCtrlNbr: triggerType.CtrlNbr,
+                TriggerConditionGroupOperator: "ALL",
+                TriggerConditions: [],
+                Steps:
+                [
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 1,
+                        Name: "Assign Incumbent to Hangout Board",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ALL",
+                        Conditions: [],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: addToRosterBoardEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>
+                                {
+                                    [WorkflowOptionKeys.EffectOption] = "Hangout"
+                                })
+                        ]),
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 2,
+                        Name: "Create Crew Bulletin",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ALL",
+                        Conditions:
+                        [
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: positionTypeMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: StaffablePositionType.Crew)
+                        ],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: createBulletinEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>())
+                        ]),
+                    new WorkflowStepDefinition(
+                        CtrlNbr: ControlNumber.Create(),
+                        Order: 3,
+                        Name: "Create Roster Board Bulletin",
+                        IsEnabled: true,
+                        FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                        ConditionGroupOperator: "ALL",
+                        Conditions:
+                        [
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: positionTypeMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: StaffablePositionType.Board),
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: boardStrategyMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: "Annualized Average")
+                            ,
+                            new WorkflowConditionDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                FieldTypeCtrlNbr: boardStrategyCriteriaMetadataFieldType.CtrlNbr,
+                                OperatorTypeCtrlNbr: equalsOperatorType.CtrlNbr,
+                                Value: WorkflowBoardStrategyCriteriaValues.Satisfied)
+                        ],
+                        Effects:
+                        [
+                            new WorkflowEffectDefinition(
+                                CtrlNbr: ControlNumber.Create(),
+                                Order: 1,
+                                IsEnabled: true,
+                                EffectTypeCtrlNbr: createBulletinEffectType.CtrlNbr,
+                                Options: new Dictionary<string, string>())
+                        ])
+                ]);
+
+            var existingVersions = await versionRepo.GetByTemplateAsync(existingTemplate.CtrlNbr);
+            var nextVersion = existingVersions.Count == 0 ? 1 : existingVersions.Max(v => v.VersionNumber) + 1;
+
+            var version = WorkflowVersion.Create(
+                existingTemplate.CtrlNbr,
+                versionNumber: nextVersion,
+                definitionJson: JsonSerializer.Serialize(definition, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                notes: "Seeded default Position Vacated workflow",
                 status: WorkflowVersionStatus.Published);
 
             await versionRepo.AddAsync(version);

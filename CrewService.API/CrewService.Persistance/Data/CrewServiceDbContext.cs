@@ -439,7 +439,7 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
     private void UpdateAuditableEntities()
     {
         var auditableEntries = ChangeTracker.Entries<Entity>()
-            .Where(e => e.State is EntityState.Added or EntityState.Modified)
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
         if (auditableEntries.Count == 0)
@@ -460,6 +460,11 @@ IFieldEncryptor fieldEncryptor) : DbContext(options), IOutboxDbContext
                     break;
                 case EntityState.Modified:
                     entry.Entity.ModifiedBy = AuditStamp.Create(auditName);
+                    break;
+                case EntityState.Deleted:
+                    entry.Entity.SoftDelete(auditName);
+                    entry.Entity.ModifiedBy = AuditStamp.Create(auditName);
+                    entry.State = EntityState.Modified;
                     break;
             }
         }

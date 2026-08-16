@@ -125,7 +125,6 @@ public static class DependencyInjection
 
         // Policies
         services.AddScoped<PoliciesService>();
-        services.AddScoped<DepartmentReassignmentService>();
         services.AddScoped<SeniorityMoveCancellationPath>();
         services.AddScoped<IncumbentAssignmentPath>();
 
@@ -219,6 +218,7 @@ public static class DependencyInjection
         services.AddScoped<IDatabaseWorkflowEffect, AddToRosterBoardWorkflowDatabaseEffect>();
         services.AddScoped<IDatabaseWorkflowEffect, PlaceOnDutyWorkflowDatabaseEffect>();
         services.AddScoped<IDatabaseWorkflowEffect, CreateSeniorityMoveWorkflowDatabaseEffect>();
+        services.AddScoped<IDatabaseWorkflowEffect, CreateBulletinWorkflowDatabaseEffect>();
         services.AddScoped<IRequirementEvaluator, ManualCompletionEvaluator>();
         services.AddScoped<IRequirementEvaluator, TimeFromEventEvaluator>();
         services.AddScoped<IRequirementEvaluator, ActivityCountEvaluator>();

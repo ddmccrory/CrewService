@@ -4,7 +4,6 @@ using CrewService.Application.Policies;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Modules.Bulletins;
 using CrewService.Domain.Modules.Crews;
-using CrewService.Domain.Modules.Policies;
 using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
@@ -14,7 +13,6 @@ namespace CrewService.Application.Crews;
 public sealed class CrewsAppService(
     IOrchestrationUnitOfWorkFactory uowFactory,
     IVacancyRepostService vacancyRepostService,
-    DepartmentReassignmentService departmentReassignmentService,
     CallSheetVacancyProjectionSyncService vacancyProjectionSyncService,
     ILogger<CrewsAppService> logger,
     IncumbentAssignmentPath? incumbentAssignmentPath = null)
@@ -220,6 +218,7 @@ public sealed class CrewsAppService(
         bool reassignEmployee,
         CancellationToken ct = default)
     {
+        _ = reassignEmployee;
         var incumbency = await uow.CrewIncumbencies.GetByCtrlNbrAsync(ctrlNbr, ct)
             ?? throw new KeyNotFoundException($"Incumbency {ctrlNbr.Value} not found.");
         incumbency.End(endUtc);
@@ -228,20 +227,6 @@ public sealed class CrewsAppService(
         var crewPosition = await uow.CrewPositions.GetByCtrlNbrAsync(incumbency.CrewPositionCtrlNbr, ct);
         if (crewPosition is null)
             return null;
-
-        var crew = await uow.Crews.GetByCtrlNbrAsync(crewPosition.CrewCtrlNbr, ct)
-            ?? throw new InvalidOperationException($"Crew {crewPosition.CrewCtrlNbr.Value} not found for position {crewPosition.CtrlNbr.Value}.");
-        if (crew.DepartmentCtrlNbr is null)
-            throw new InvalidOperationException($"Crew {crew.CtrlNbr.Value} is missing a department; department reassignment is required.");
-
-        if (reassignEmployee)
-        {
-            await departmentReassignmentService.ReassignEmployeeAsync(
-                uow,
-                incumbency.EmployeeCtrlNbr,
-                crew.DepartmentCtrlNbr,
-                ct);
-        }
 
         var positionAssignment = await uow.PositionAssignments.GetByStaffablePositionAsync(crewPosition.StaffablePositionCtrlNbr);
         if (positionAssignment is null)
