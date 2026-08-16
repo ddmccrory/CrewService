@@ -411,6 +411,143 @@ public sealed class WorkflowRuntimeService(
         return true;
     }
 
+    public async Task<bool> ExecutePositionVacatedAsync(
+        ControlNumber railroadCtrlNbr,
+        WorkflowPositionVacatedRuntimePayload payload,
+        string? correlationId = null,
+        CancellationToken ct = default)
+    {
+        IReadOnlyList<WorkflowEffectPostCommitWorkItem> postCommitWorkItems;
+
+        {
+            await using var uow = await uowFactory.CreateAsync(cancellationToken: ct);
+
+            var referenceData = await LoadReferenceDataAsync(uow, ct);
+            if (!referenceData.TriggerTypeCtrlNbrByCode.TryGetValue(
+                    WorkflowTriggerTypeCodes.PositionVacated,
+                    out var triggerTypeCtrlNbr))
+            {
+                throw new InvalidOperationException(
+                    $"Workflow trigger type '{WorkflowTriggerTypeCodes.PositionVacated}' was not found.");
+            }
+
+            var publishedVersion = await uow.WorkflowVersions.GetLatestPublishedByRailroadAndTriggerAsync(
+                railroadCtrlNbr,
+                triggerTypeCtrlNbr,
+                ct);
+
+            if (publishedVersion is null)
+            {
+                logger.LogInformation(
+                    "WorkflowRuntimeService: No published workflow found for trigger '{TriggerType}' and railroad {Railroad}; skipping.",
+                    WorkflowTriggerTypeCodes.PositionVacated,
+                    railroadCtrlNbr.Value);
+                return false;
+            }
+
+            var definition = DeserializeDefinition(publishedVersion.DefinitionJson);
+            var metadata = new WorkflowMetadataContext();
+            metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.VacancyType] = payload.VacancyReasonCode;
+            metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.PositionType] = payload.PositionTypeCode;
+            metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.CraftCtrlNbr] = payload.CraftCtrlNbr.Value.ToString();
+
+            var boardBulletinStrategy = await ResolveBoardBulletinStrategyNameAsync(uow, payload, ct);
+            if (!string.IsNullOrWhiteSpace(boardBulletinStrategy))
+                metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.BoardBulletinStrategy] = boardBulletinStrategy;
+
+            var boardStrategyCriteria = await ResolveBoardStrategyCriteriaAsync(uow, payload, ct);
+            if (!string.IsNullOrWhiteSpace(boardStrategyCriteria))
+                metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.BoardStrategyCriteria] = boardStrategyCriteria;
+
+            var craft = await uow.Crafts.GetByCtrlNbrAsync(payload.CraftCtrlNbr, ct);
+            if (craft is not null)
+                metadata.ValuesByFieldCode[WorkflowMetadataFieldTypeCodes.CraftName] = craft.CraftName;
+
+            if (!ShouldExecuteConditions(definition.TriggerConditionGroupOperator, definition.TriggerConditions, metadata, referenceData))
+            {
+                var skippedHistory = WorkflowExecutionHistory.Start(
+                    publishedVersion.WorkflowTemplateCtrlNbr,
+                    publishedVersion.CtrlNbr,
+                    publishedVersion.VersionNumber,
+                    railroadCtrlNbr,
+                    triggerTypeCtrlNbr,
+                    payload.StaffablePositionCtrlNbr,
+                    correlationId);
+
+                skippedHistory.Complete(
+                    WorkflowExecutionStatus.Skipped,
+                    JsonSerializer.Serialize(new
+                    {
+                        Reason = "Trigger conditions did not match.",
+                        TriggerConditionGroupOperator = definition.TriggerConditionGroupOperator,
+                        TriggerConditions = definition.TriggerConditions
+                    }, JsonOptions));
+
+                uow.WorkflowExecutionHistories.Add(skippedHistory);
+                await uow.CommitAsync(ct);
+                return true;
+            }
+
+            var executionHistory = WorkflowExecutionHistory.Start(
+                publishedVersion.WorkflowTemplateCtrlNbr,
+                publishedVersion.CtrlNbr,
+                publishedVersion.VersionNumber,
+                railroadCtrlNbr,
+                triggerTypeCtrlNbr,
+                payload.StaffablePositionCtrlNbr,
+                correlationId);
+
+            uow.WorkflowExecutionHistories.Add(executionHistory);
+            var triggerReferenceData = BuildTriggerReferenceData(referenceData);
+            var runtimeContext = BuildPositionVacatedRuntimeContext(railroadCtrlNbr, payload);
+
+            try
+            {
+                var triggerResult = await workflowTriggerExecutionTemplate.ExecuteAsync(
+                    new WorkflowTriggerExecutionContext(
+                        uow,
+                        definition,
+                        publishedVersion,
+                        triggerTypeCtrlNbr,
+                        railroadCtrlNbr,
+                        payload.StaffablePositionCtrlNbr,
+                        triggerReferenceData,
+                        new WorkflowRuntimeTriggerMetadata(metadata.ValuesByFieldCode),
+                        runtimeContext,
+                        correlationId,
+                        ct));
+
+                executionHistory.Complete(
+                    triggerResult.Status,
+                    JsonSerializer.Serialize(new { Steps = triggerResult.StepOutcomes }, JsonOptions));
+
+                postCommitWorkItems = triggerResult.PostCommitWorkItems;
+                await uow.CommitAsync(ct);
+            }
+            catch (WorkflowTriggerExecutionException ex)
+            {
+                executionHistory.Complete(
+                    WorkflowExecutionStatus.Failed,
+                    JsonSerializer.Serialize(new { Steps = ex.StepOutcomes }, JsonOptions));
+
+                await uow.CommitAsync(ct);
+                throw ex.InnerException ?? ex;
+            }
+            catch
+            {
+                executionHistory.Complete(
+                    WorkflowExecutionStatus.Failed,
+                    JsonSerializer.Serialize(new { Steps = Array.Empty<WorkflowExecutionStepOutcomeRecord>() }, JsonOptions));
+
+                await uow.CommitAsync(ct);
+                throw;
+            }
+        }
+
+        await workflowPostCommitDispatcher.DispatchAsync(postCommitWorkItems, ct);
+        return true;
+    }
+
     public async Task<bool> ExecuteVacancyPlaceOnDutyRequestedAsync(
         ControlNumber railroadCtrlNbr,
         WorkflowPlaceOnDutyRuntimePayload payload,
@@ -677,6 +814,83 @@ public sealed class WorkflowRuntimeService(
             PlaceOnDutyPayload: null);
     }
 
+    private static WorkflowEffectRuntimeContext BuildPositionVacatedRuntimeContext(
+        ControlNumber railroadCtrlNbr,
+        WorkflowPositionVacatedRuntimePayload payload)
+    {
+        return new WorkflowEffectRuntimeContext(
+            PrimaryEmail: null,
+            ClientCtrlNbr: 0,
+            TriggerEmail: string.Empty,
+            InvitedByUserId: string.Empty,
+            InvitedByUserName: string.Empty,
+            TriggerRailroadCtrlNbr: railroadCtrlNbr,
+            EmployeeCtrlNbr: payload.PreviousIncumbentCtrlNbr,
+            RosterCtrlNbr: payload.RosterCtrlNbr,
+            SeniorityStateCtrlNbr: null,
+            PlaceOnDutyPayload: null,
+            PositionVacatedPayload: payload);
+    }
+
+    private static async Task<string?> ResolveBoardBulletinStrategyNameAsync(
+        IOrchestrationUnitOfWork uow,
+        WorkflowPositionVacatedRuntimePayload payload,
+        CancellationToken ct)
+    {
+        if (!string.Equals(payload.PositionTypeCode, StaffablePositionType.Board, StringComparison.Ordinal))
+            return null;
+
+        var board = payload.BoardCtrlNbr is not null
+            ? await uow.RosterBoards.GetByCtrlNbrAsync(payload.BoardCtrlNbr, ct)
+            : await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(payload.StaffablePositionCtrlNbr, ct);
+        if (board is null)
+            return null;
+
+        var strategyCtrlNbr = board.RequiredPositionsStrategyCtrlNbr;
+        if (strategyCtrlNbr is null)
+        {
+            var craftStrategy = await uow.CraftRequiredPositionsStrategies.GetByCraftAsync(board.CraftCtrlNbr, ct);
+            strategyCtrlNbr = craftStrategy?.StrategyCtrlNbr;
+        }
+
+        if (strategyCtrlNbr is null)
+            return null;
+
+        var strategy = await uow.RequiredPositionsStrategies.GetByCtrlNbrAsync(strategyCtrlNbr, ct);
+        return string.IsNullOrWhiteSpace(strategy?.Name) ? null : strategy.Name;
+    }
+
+    private static async Task<string?> ResolveBoardStrategyCriteriaAsync(
+        IOrchestrationUnitOfWork uow,
+        WorkflowPositionVacatedRuntimePayload payload,
+        CancellationToken ct)
+    {
+        if (!string.Equals(payload.PositionTypeCode, StaffablePositionType.Board, StringComparison.Ordinal))
+            return null;
+
+        var board = payload.BoardCtrlNbr is not null
+            ? await uow.RosterBoards.GetByCtrlNbrAsync(payload.BoardCtrlNbr, ct)
+            : await uow.RosterBoards.GetByStaffablePositionCtrlNbrAsync(payload.StaffablePositionCtrlNbr, ct);
+        if (board is null)
+            return null;
+
+        if (board.RequiredPositions <= 0)
+            return WorkflowBoardStrategyCriteriaValues.NotSatisfied;
+
+        var slotPositionCtrlNbrs = board.Positions
+            .Select(p => p.StaffablePositionCtrlNbr)
+            .Where(c => c != payload.StaffablePositionCtrlNbr)
+            .ToList();
+
+        var occupied = slotPositionCtrlNbrs.Count == 0
+            ? 0
+            : (await uow.PositionAssignments.GetByStaffablePositionsAsync(slotPositionCtrlNbrs)).Count;
+
+        return occupied < board.RequiredPositions
+            ? WorkflowBoardStrategyCriteriaValues.Satisfied
+            : WorkflowBoardStrategyCriteriaValues.NotSatisfied;
+    }
+
     private static async Task<WorkflowMetadataContext> BuildEmployeeMetadataAsync(
         IOrchestrationUnitOfWork uow,
         ControlNumber employeeCtrlNbr,
@@ -823,6 +1037,7 @@ public static class TriggerTypes
     public const string SeniorityStatusChanged = "Seniority Status Changed";
     public const string VacancyPlaceOnDutyRequested = "Vacancy Place On Duty Requested";
     public const string NotificationAccepted = "Notification Accepted";
+    public const string PositionVacated = "Position Vacated";
 }
 
 public static class WorkflowEffectTypes
@@ -833,6 +1048,7 @@ public static class WorkflowEffectTypes
     public const string VacatePositionAndBulletinPosition = "Vacate Position & Bulletin Position";
     public const string PlaceOnDuty = "Place On Duty";
     public const string CreateSeniorityMove = "Create Seniority Move";
+    public const string CreateBulletin = "Create Bulletin";
 }
 
 public static class WorkflowFailurePolicies
@@ -862,6 +1078,16 @@ public static class WorkflowMetadataKeys
     public const string SeniorityStateName = "seniorityStateName";
     public const string NotificationType = "notificationType";
     public const string BoardType = "boardType";
+    public const string VacancyType = "vacancyType";
+    public const string PositionType = "positionType";
+    public const string BoardBulletinStrategy = "boardBulletinStrategy";
+    public const string BoardStrategyCriteria = "boardStrategyCriteria";
+}
+
+public static class WorkflowBoardStrategyCriteriaValues
+{
+    public const string Satisfied = "Satisfied";
+    public const string NotSatisfied = "Not Satisfied";
 }
 
 public static class WorkflowOperators
@@ -876,6 +1102,7 @@ public static class WorkflowTriggerTypeCodes
     public const string SeniorityStatusChanged = TriggerTypes.SeniorityStatusChanged;
     public const string VacancyPlaceOnDutyRequested = TriggerTypes.VacancyPlaceOnDutyRequested;
     public const string NotificationAccepted = TriggerTypes.NotificationAccepted;
+    public const string PositionVacated = TriggerTypes.PositionVacated;
 }
 
 public static class WorkflowEffectTypeCodes
@@ -886,6 +1113,7 @@ public static class WorkflowEffectTypeCodes
     public const string VacatePositionAndBulletinPosition = WorkflowEffectTypes.VacatePositionAndBulletinPosition;
     public const string PlaceOnDuty = WorkflowEffectTypes.PlaceOnDuty;
     public const string CreateSeniorityMove = WorkflowEffectTypes.CreateSeniorityMove;
+    public const string CreateBulletin = WorkflowEffectTypes.CreateBulletin;
 }
 
 public static class WorkflowOperatorTypeCodes
@@ -905,4 +1133,8 @@ public static class WorkflowMetadataFieldTypeCodes
     public const string SeniorityStateName = WorkflowMetadataKeys.SeniorityStateName;
     public const string NotificationType = WorkflowMetadataKeys.NotificationType;
     public const string BoardType = WorkflowMetadataKeys.BoardType;
+    public const string VacancyType = WorkflowMetadataKeys.VacancyType;
+    public const string PositionType = WorkflowMetadataKeys.PositionType;
+    public const string BoardBulletinStrategy = WorkflowMetadataKeys.BoardBulletinStrategy;
+    public const string BoardStrategyCriteria = WorkflowMetadataKeys.BoardStrategyCriteria;
 }

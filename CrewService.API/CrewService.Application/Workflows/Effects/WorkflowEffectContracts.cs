@@ -22,7 +22,8 @@ public sealed record WorkflowEffectRuntimeContext(
     ControlNumber? EmployeeCtrlNbr,
     ControlNumber? RosterCtrlNbr,
     ControlNumber? SeniorityStateCtrlNbr,
-    WorkflowPlaceOnDutyRuntimePayload? PlaceOnDutyPayload = null);
+    WorkflowPlaceOnDutyRuntimePayload? PlaceOnDutyPayload = null,
+    WorkflowPositionVacatedRuntimePayload? PositionVacatedPayload = null);
 
 public sealed record WorkflowPlaceOnDutyRuntimePayload(
     ControlNumber PositionSlotCtrlNbr,
@@ -31,6 +32,15 @@ public sealed record WorkflowPlaceOnDutyRuntimePayload(
     DateTime ScheduledOnDutyTimeUtc,
     bool IsAssigned,
     int LateCallThresholdMinutes = 0);
+
+public sealed record WorkflowPositionVacatedRuntimePayload(
+    ControlNumber StaffablePositionCtrlNbr,
+    ControlNumber CraftCtrlNbr,
+    string PositionTypeCode,
+    string VacancyReasonCode,
+    ControlNumber? PreviousIncumbentCtrlNbr,
+    ControlNumber? BoardCtrlNbr = null,
+    ControlNumber? RosterCtrlNbr = null);
 
 public sealed record WorkflowEffectPostCommitWorkItem(
     string WorkType,

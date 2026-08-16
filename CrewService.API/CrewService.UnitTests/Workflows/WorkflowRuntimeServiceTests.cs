@@ -1,9 +1,16 @@
 using System.Text.Json;
 using CrewService.Application.Modules.UserAccess;
+using CrewService.Application.Notifications;
 using CrewService.Application.VacancyAssignment;
 using CrewService.Application.UserAccess;
 using CrewService.Application.Workflows;
 using CrewService.Application.Workflows.Effects;
+using CrewService.Application.Qualifications;
+using CrewService.Application.Crews;
+using CrewService.Application.RosterBoardOps;
+using CrewService.Application.Bulletins;
+using CrewService.Application.BackgroundWorkers;
+using CrewService.Application.Boards;
 using CrewService.Domain.DomainEvents.Employees;
 using CrewService.Domain.Interfaces;
 using CrewService.Domain.Models.ContactTypes;
@@ -14,6 +21,8 @@ using CrewService.Domain.Models.Parents;
 using CrewService.Domain.Models.UserAccess;
 using CrewService.Domain.Modules.Boards;
 using CrewService.Domain.Modules.Dispatching;
+using CrewService.Domain.Modules.Crews;
+using CrewService.Domain.Modules.Staffing;
 using CrewService.Domain.Modules.Authorization;
 using CrewService.Domain.Modules.TenantConfig;
 using CrewService.Domain.Modules.WorkManagement;
@@ -67,6 +76,7 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
             _crewContext.Set<WorkflowTriggerType>().AddRange(
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated),
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged),
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.PositionVacated, TriggerTypes.PositionVacated),
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.VacancyPlaceOnDutyRequested, TriggerTypes.VacancyPlaceOnDutyRequested));
         }
 
@@ -77,7 +87,8 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing),
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.AddToRosterBoard, WorkflowEffectTypes.AddToRosterBoard),
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition),
-                WorkflowEffectType.Create(WorkflowEffectTypeCodes.PlaceOnDuty, WorkflowEffectTypes.PlaceOnDuty));
+                WorkflowEffectType.Create(WorkflowEffectTypeCodes.PlaceOnDuty, WorkflowEffectTypes.PlaceOnDuty),
+                WorkflowEffectType.Create(WorkflowEffectTypeCodes.CreateBulletin, WorkflowEffectTypes.CreateBulletin));
         }
 
         if (!_crewContext.Set<WorkflowOperatorType>().Any())
@@ -95,6 +106,7 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.DepartmentName, "Department Name"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftCtrlNbr, "Craft CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.PositionType, "Position Type"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority Status CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name"));
         }
@@ -405,6 +417,106 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         Assert.Single(matching);
     }
 
+    [Fact]
+    public async Task ExecutePositionVacatedAsync_WithAddToRosterBoardStep_AssignsPreviousIncumbentToHangoutBoard()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var railroad = await SeedRailroadWithParentAsync("RR-PV-1", ct);
+
+        var craft = Craft.Create(
+            parentCtrlNbr: null,
+            dynamicGroupCtrlNbr: railroad.CtrlNbr,
+            craftName: "Trainman",
+            craftPluralName: "Trainmen",
+            craftNumber: 1,
+            autoMarkUp: false,
+            approveAllMarkOffs: false,
+            markOffHours: 0,
+            markUpHours: 0,
+            requiredRestHours: 0,
+            maximumVacationDayTime: 0,
+            unpaidMealPeriodMinutes: 0,
+            hoursofService: false,
+            processPayroll: false,
+            showNotifications: false,
+            vacationAssignmentType: 0);
+        _crewContext.Crafts.Add(craft);
+        await _crewContext.SaveChangesAsync(ct);
+
+        var roster = Roster.Create(
+            craftCtrlNbr: craft.CtrlNbr,
+            workAreaGroupCtrlNbr: railroad.CtrlNbr,
+            railroadPayrollDepartmentCtrlNbr: null,
+            rosterName: "Trainman",
+            rosterPluralName: "Trainmen",
+            rosterNumber: 1);
+        _crewContext.Rosters.Add(roster);
+
+        var seniorityState = SeniorityState.Create("Active", StateType.Active, railroad.ParentCtrlNbr!.Value);
+        _crewContext.Set<SeniorityState>().Add(seniorityState);
+
+        var board = RosterBoard.Create(
+            craftCtrlNbr: craft.CtrlNbr,
+            rosterCtrlNbr: roster.CtrlNbr,
+            name: "Trainman Hangout",
+            boardType: BoardType.Hangout,
+            rotationType: RotationType.StandardRotation,
+            isActive: true);
+        _crewContext.RosterBoards.Add(board);
+
+        var employee = await SeedEmployeeAsync(withPrimaryEmail: true, ct);
+        _crewContext.Set<Seniority>().Add(Seniority.Create(
+            roster.CtrlNbr,
+            employee.CtrlNbr,
+            lastActiveRoster: true,
+            rosterDate: new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc),
+            rank: 1,
+            seniorityStateCtrlNbr: seniorityState.CtrlNbr,
+            canTrain: false));
+
+        var staffablePosition = StaffablePosition.Create(StaffablePositionType.Crew);
+        _crewContext.StaffablePositions.Add(staffablePosition);
+
+        await _crewContext.SaveChangesAsync(ct);
+
+        await SeedPositionVacatedWorkflowVersionAsync(railroad.CtrlNbr, ct);
+
+        var runtime = BuildRuntimeService();
+        var executed = await runtime.ExecutePositionVacatedAsync(
+            railroad.CtrlNbr,
+            new WorkflowPositionVacatedRuntimePayload(
+                StaffablePositionCtrlNbr: staffablePosition.CtrlNbr,
+                CraftCtrlNbr: craft.CtrlNbr,
+                PositionTypeCode: StaffablePositionType.Crew,
+                VacancyReasonCode: "INCUMBENT_REMOVED",
+                PreviousIncumbentCtrlNbr: employee.CtrlNbr,
+                BoardCtrlNbr: null,
+                RosterCtrlNbr: roster.CtrlNbr),
+            correlationId: "test-pv-1",
+            ct: ct);
+
+        Assert.True(executed);
+
+        _crewContext.ChangeTracker.Clear();
+
+        var assignment = await _crewContext.Set<PositionAssignment>()
+            .SingleOrDefaultAsync(
+                a => a.EmployeeCtrlNbr == employee.CtrlNbr && a.AssignmentType == PositionAssignmentType.Board,
+                ct);
+
+        Assert.NotNull(assignment);
+        Assert.Equal(PositionAssignmentType.Board, assignment!.AssignmentType);
+        Assert.NotNull(assignment.AssignmentSourceCtrlNbr);
+
+        var positionMappedToBoard = await _crewContext.Set<RosterBoard>()
+            .AnyAsync(
+                b => b.CtrlNbr == board.CtrlNbr
+                     && b.Positions.Any(p => p.CtrlNbr == assignment.AssignmentSourceCtrlNbr),
+                ct);
+
+        Assert.True(positionMappedToBoard);
+    }
+
     private WorkflowRuntimeService BuildRuntimeService(IWorkflowPostCommitDispatcher? postCommitDispatcher = null)
     {
         var uowFactory = new OrchestrationUnitOfWorkFactory(
@@ -426,13 +538,41 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
             NullLogger<InvitationAppService>.Instance);
 
         var railroadResolver = new RailroadResolver();
+        var requirementEvaluation = new RequirementEvaluationService(uowFactory, []);
+        var vacancySync = TestCallSheetVacancyProjectionSyncFactory.Create(uowFactory);
+        var notifications = new EmployeeNotificationService(
+            NullLogger<EmployeeNotificationService>.Instance,
+            railroadResolver,
+            new NotificationTypeConfigResolver(NullLogger<NotificationTypeConfigResolver>.Instance));
+        var bulletins = new BulletinsService(
+            uowFactory,
+            NullLogger<BulletinsService>.Instance,
+            new BulletinScheduleSignal(),
+            notifications,
+            new EmployeeEligibilityService(uowFactory),
+            vacancySync);
+        var repost = new VacancyRepostService(uowFactory, bulletins, NullLogger<VacancyRepostService>.Instance);
+        var crews = new CrewsAppService(uowFactory, repost, vacancySync, NullLogger<CrewsAppService>.Instance);
+        var rosterBoards = new RosterBoardAppService(
+            uowFactory,
+            requirementEvaluation,
+            new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
+            repost,
+            notifications,
+            vacancySync);
+
         var workflowPostCommitDispatcher = postCommitDispatcher ?? new WorkflowPostCommitDispatcher(
             invitationService,
-            new NoOpVacancyRepostService());
+            repost);
         var workflowEffectRunner = new WorkflowEffectRunner(
             new WorkflowEffectHandlerFactory([
                 new SendInvitationWorkflowDatabaseEffect(invitationService),
-                new PlaceOnDutyWorkflowDatabaseEffect()
+                new PlaceOnDutyWorkflowDatabaseEffect(),
+                new AddToRosterBoardWorkflowDatabaseEffect(
+                    new SeniorityWorkflowAssignmentPath(crews, rosterBoards),
+                    rosterBoards,
+                    NullLogger<AddToRosterBoardWorkflowDatabaseEffect>.Instance),
+                new CreateBulletinWorkflowDatabaseEffect(NullLogger<CreateBulletinWorkflowDatabaseEffect>.Instance)
             ]),
             new WorkflowEffectExecutionTemplate(new WorkflowEffectExecutionGuard()));
         var triggerTemplate = new WorkflowTriggerExecutionTemplate(
@@ -445,6 +585,87 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
             workflowPostCommitDispatcher: workflowPostCommitDispatcher,
             railroadResolver: railroadResolver,
             logger: NullLogger<WorkflowRuntimeService>.Instance);
+    }
+
+    private async Task SeedPositionVacatedWorkflowVersionAsync(ControlNumber railroadCtrlNbr, CancellationToken ct)
+    {
+        var triggerTypeCtrlNbr = await _crewContext.Set<WorkflowTriggerType>()
+            .Where(t => t.Code == WorkflowTriggerTypeCodes.PositionVacated)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var addToRosterBoardEffectTypeCtrlNbr = await _crewContext.Set<WorkflowEffectType>()
+            .Where(t => t.Code == WorkflowEffectTypeCodes.AddToRosterBoard)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var createBulletinEffectTypeCtrlNbr = await _crewContext.Set<WorkflowEffectType>()
+            .Where(t => t.Code == WorkflowEffectTypeCodes.CreateBulletin)
+            .Select(t => t.CtrlNbr)
+            .FirstAsync(ct);
+
+        var template = WorkflowTemplate.Create(
+            railroadCtrlNbr,
+            name: "Position Vacated",
+            triggerTypeCtrlNbr: triggerTypeCtrlNbr,
+            isEnabled: true);
+
+        _crewContext.WorkflowTemplates.Add(template);
+        await _crewContext.SaveChangesAsync(ct);
+
+        var definition = new WorkflowDefinition(
+            TriggerTypeCtrlNbr: triggerTypeCtrlNbr,
+            TriggerConditionGroupOperator: "ALL",
+            TriggerConditions: [],
+            [
+                new WorkflowStepDefinition(
+                    CtrlNbr: ControlNumber.Create(),
+                    Order: 1,
+                    Name: "Assign Incumbent to Hangout Board",
+                    IsEnabled: true,
+                    FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                    ConditionGroupOperator: "ALL",
+                    Conditions: [],
+                    Effects:
+                    [
+                        new WorkflowEffectDefinition(
+                            CtrlNbr: ControlNumber.Create(),
+                            Order: 1,
+                            IsEnabled: true,
+                            EffectTypeCtrlNbr: addToRosterBoardEffectTypeCtrlNbr,
+                            Options: new Dictionary<string, string>
+                            {
+                                [WorkflowOptionKeys.EffectOption] = "Hangout"
+                            })
+                    ]),
+                new WorkflowStepDefinition(
+                    CtrlNbr: ControlNumber.Create(),
+                    Order: 2,
+                    Name: "Create Crew Bulletin",
+                    IsEnabled: true,
+                    FailurePolicy: WorkflowFailurePolicies.StopWorkflow,
+                    ConditionGroupOperator: "ALL",
+                    Conditions: [],
+                    Effects:
+                    [
+                        new WorkflowEffectDefinition(
+                            CtrlNbr: ControlNumber.Create(),
+                            Order: 1,
+                            IsEnabled: true,
+                            EffectTypeCtrlNbr: createBulletinEffectTypeCtrlNbr,
+                            Options: new Dictionary<string, string>())
+                    ])
+            ]);
+
+        var version = WorkflowVersion.Create(
+            template.CtrlNbr,
+            versionNumber: 1,
+            definitionJson: JsonSerializer.Serialize(definition),
+            notes: "seed",
+            status: WorkflowVersionStatus.Published);
+
+        _crewContext.WorkflowVersions.Add(version);
+        await _crewContext.SaveChangesAsync(ct);
     }
 
     private sealed class AssertNoAmbientTransactionPostCommitDispatcher(Func<bool> hasAmbientTransaction) : IWorkflowPostCommitDispatcher
@@ -463,14 +684,17 @@ public sealed class WorkflowRuntimeServiceTests : IDisposable
         public Task RepostVacatedPositionAsync(
             ControlNumber staffablePositionCtrlNbr,
             ControlNumber? previousIncumbentCtrlNbr = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            bool executeWorkflowTrigger = true)
             => Task.CompletedTask;
 
         public Task RepostBoardPositionIfUnderstaffedAsync(
             ControlNumber boardCtrlNbr,
             ControlNumber vacatedStaffablePositionCtrlNbr,
             ControlNumber? previousIncumbentCtrlNbr = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            bool executeWorkflowTrigger = true,
+            bool enforceUnderstaffedPolicy = true)
             => Task.CompletedTask;
 
         public Task<int> ReconcileUnbulletinedVacantPositionsAsync(CancellationToken ct = default)

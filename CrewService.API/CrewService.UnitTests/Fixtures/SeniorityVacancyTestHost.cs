@@ -64,6 +64,7 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
 
         var scheduleSignal = new BulletinScheduleSignal();
         var railroadResolver = new RailroadResolver();
+        var workflowRuntimeProvider = new DeferredWorkflowRuntimeServiceProvider();
         var notifications = new EmployeeNotificationService(
             NullLogger<EmployeeNotificationService>.Instance,
             railroadResolver,
@@ -73,16 +74,18 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
         var eligibility = new EmployeeEligibilityService(UowFactory);
         Bulletins = new BulletinsService(
             UowFactory, NullLogger<BulletinsService>.Instance, scheduleSignal, notifications, eligibility, vacancySync);
-        Repost = new VacancyRepostService(UowFactory, Bulletins, NullLogger<VacancyRepostService>.Instance);
-        var departmentReassignment = new DepartmentReassignmentService(vacancySync);
+        Repost = new VacancyRepostService(
+            UowFactory,
+            Bulletins,
+            NullLogger<VacancyRepostService>.Instance,
+            workflowRuntimeProvider);
 
-        Crews = new CrewsAppService(UowFactory, Repost, departmentReassignment, vacancySync, NullLogger<CrewsAppService>.Instance);
+        Crews = new CrewsAppService(UowFactory, Repost, vacancySync, NullLogger<CrewsAppService>.Instance);
         RosterBoards = new RosterBoardAppService(
             UowFactory,
             requirementEvaluation,
             new RequiredPositionsFormulaRegistry([new StaticFormula(), new AnnualizedAverageFormula()]),
             Repost,
-            departmentReassignment,
             notifications,
             vacancySync);
 
@@ -92,7 +95,9 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
                 new AddToRosterBoardWorkflowDatabaseEffect(
                     new SeniorityWorkflowAssignmentPath(Crews, RosterBoards),
                     RosterBoards,
-                    NullLogger<AddToRosterBoardWorkflowDatabaseEffect>.Instance)
+                    NullLogger<AddToRosterBoardWorkflowDatabaseEffect>.Instance),
+                new CreateBulletinWorkflowDatabaseEffect(
+                    NullLogger<CreateBulletinWorkflowDatabaseEffect>.Instance)
             ]),
             new WorkflowEffectExecutionTemplate(new NoOpWorkflowEffectExecutionGuard()));
         var triggerTemplate = new WorkflowTriggerExecutionTemplate(
@@ -105,6 +110,7 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
             workflowPostCommitDispatcher: new SeniorityOnlyWorkflowPostCommitDispatcher(Repost),
             railroadResolver: railroadResolver,
             logger: NullLogger<WorkflowRuntimeService>.Instance);
+        workflowRuntimeProvider.WorkflowRuntime = workflowRuntime;
         var seniorityStateChangeSignal = new SeniorityStateChangeSignal();
         Seniority = new SeniorityAppService(
             UowFactory,
@@ -114,13 +120,24 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
             seniorityStateChangeSignal);
     }
 
+    private sealed class DeferredWorkflowRuntimeServiceProvider : IServiceProvider
+    {
+        public WorkflowRuntimeService? WorkflowRuntime { get; set; }
+
+        public object? GetService(Type serviceType)
+            => serviceType == typeof(WorkflowRuntimeService)
+                ? WorkflowRuntime
+                : null;
+    }
+
     private void SeedWorkflowReferenceData()
     {
         if (!_crewContext.Set<WorkflowTriggerType>().Any())
         {
             _crewContext.Set<WorkflowTriggerType>().AddRange(
                 WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.EmployeeCreated, TriggerTypes.EmployeeCreated),
-                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged));
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.SeniorityStatusChanged, TriggerTypes.SeniorityStatusChanged),
+                WorkflowTriggerType.Create(WorkflowTriggerTypeCodes.PositionVacated, TriggerTypes.PositionVacated));
         }
 
         if (!_crewContext.Set<WorkflowEffectType>().Any())
@@ -129,7 +146,8 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.SendInvitation, WorkflowEffectTypes.SendInvitation),
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.DoNothing, WorkflowEffectTypes.DoNothing),
                 WorkflowEffectType.Create(WorkflowEffectTypeCodes.AddToRosterBoard, WorkflowEffectTypes.AddToRosterBoard),
-                WorkflowEffectType.Create(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition));
+                WorkflowEffectType.Create(WorkflowEffectTypeCodes.VacatePositionAndBulletinPosition, WorkflowEffectTypes.VacatePositionAndBulletinPosition),
+                WorkflowEffectType.Create(WorkflowEffectTypeCodes.CreateBulletin, WorkflowEffectTypes.CreateBulletin));
         }
 
         if (!_crewContext.Set<WorkflowOperatorType>().Any())
@@ -148,7 +166,11 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftCtrlNbr, "Craft CtrlNbr"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.CraftName, "Craft Name"),
                 WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateCtrlNbr, "Seniority Status CtrlNbr"),
-                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name"));
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.SeniorityStateName, "Seniority Status Name"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.PositionType, "Position Type"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.VacancyType, "Vacancy Type"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.BoardBulletinStrategy, "Board Bulletin Strategy"),
+                WorkflowMetadataFieldType.Create(WorkflowMetadataFieldTypeCodes.BoardStrategyCriteria, "Board Strategy Criteria"));
         }
 
         _crewContext.SaveChanges();
@@ -226,7 +248,9 @@ internal sealed class SeniorityVacancyTestHost : IDisposable
                             payload.BoardCtrlNbr,
                             payload.VacatedStaffablePositionCtrlNbr,
                             payload.PreviousIncumbentCtrlNbr,
-                            ct);
+                            ct: ct,
+                            executeWorkflowTrigger: false,
+                            enforceUnderstaffedPolicy: payload.EnforceUnderstaffedPolicy);
                         break;
                     }
                 }

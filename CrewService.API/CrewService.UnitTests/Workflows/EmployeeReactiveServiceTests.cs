@@ -119,10 +119,10 @@ public sealed class EmployeeReactiveServiceTests
 
     private sealed class NoOpVacancyRepostService : IVacancyRepostService
     {
-        public Task RepostVacatedPositionAsync(ControlNumber staffablePositionCtrlNbr, ControlNumber? previousIncumbentCtrlNbr = null, CancellationToken ct = default)
+        public Task RepostVacatedPositionAsync(ControlNumber staffablePositionCtrlNbr, ControlNumber? previousIncumbentCtrlNbr = null, CancellationToken ct = default, bool executeWorkflowTrigger = true)
             => Task.CompletedTask;
 
-        public Task RepostBoardPositionIfUnderstaffedAsync(ControlNumber boardCtrlNbr, ControlNumber vacatedStaffablePositionCtrlNbr, ControlNumber? previousIncumbentCtrlNbr = null, CancellationToken ct = default)
+        public Task RepostBoardPositionIfUnderstaffedAsync(ControlNumber boardCtrlNbr, ControlNumber vacatedStaffablePositionCtrlNbr, ControlNumber? previousIncumbentCtrlNbr = null, CancellationToken ct = default, bool executeWorkflowTrigger = true, bool enforceUnderstaffedPolicy = true)
             => Task.CompletedTask;
 
         public Task<int> ReconcileUnbulletinedVacantPositionsAsync(CancellationToken ct = default)

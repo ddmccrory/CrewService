@@ -127,7 +127,8 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
 
         Assert.Single(uow.FakeVacancies.AddedEntities);
         Assert.Single(uow.FakeBulletins.AddedEntities);
@@ -149,7 +150,7 @@ public class VacancyRepostServiceTests
             activeSeniorityMoves: [voluntaryMove, hangoutMove, differentTargetMove]);
         var sut = BuildService(uow);
 
-        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr, TestContext.Current.CancellationToken);
+        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr, TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         Assert.Equal(SeniorityMoveStatus.Cancelled, voluntaryMove.Status);
         Assert.Equal(SeniorityMoveStatus.Cancelled, hangoutMove.Status);
@@ -172,7 +173,7 @@ public class VacancyRepostServiceTests
             activeSeniorityMoves: [noAccessMove]);
         var sut = BuildService(uow);
 
-        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr, TestContext.Current.CancellationToken);
+        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr, TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         Assert.Equal(SeniorityMoveStatus.Pending, noAccessMove.Status);
         Assert.Null(noAccessMove.CancellationReason);
@@ -187,7 +188,8 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
 
         var vacancy = Assert.Single(uow.FakeVacancies.AddedEntities);
         Assert.Equal("INCUMBENT_VACATED", vacancy.VacancyReasonCode);
@@ -208,10 +210,30 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
+    }
+
+    [Fact]
+    public async Task RepostVacatedPosition_ExistingOpenIncumbentRemovedVacancy_PostsBulletin()
+    {
+        var existing = PositionVacancy.Create(
+            WorkAreaCtrlNbr, StaffablePositionType.Crew, CrewStaffPos, CraftCtrlNbr, "INCUMBENT_REMOVED");
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), craftRole: MakeCraftRole(), crew: MakeCrew(),
+            crewPositionByStaffPos: MakeCrewPosition(CrewStaffPos), existingVacancies: [existing]);
+        var sut = BuildService(uow);
+
+        await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
+
+        Assert.Empty(uow.FakeVacancies.AddedEntities);
+        Assert.Single(uow.FakeBulletins.AddedEntities);
+        Assert.Equal("Bulletined", existing.Status);
     }
 
     [Fact]
@@ -225,7 +247,8 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
@@ -240,7 +263,8 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
@@ -258,7 +282,8 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostVacatedPositionAsync(CrewStaffPos, EmployeeCtrlNbr,
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken,
+            executeWorkflowTrigger: false);
 
         Assert.False(uow.Committed);
     }
@@ -274,7 +299,7 @@ public class VacancyRepostServiceTests
             boardAssignments: [MakeBoardAssignment(BoardSlot2, 2002)]);
         var sut = BuildService(uow);
 
-        await sut.RepostVacatedPositionAsync(BoardSlot1, ct: TestContext.Current.CancellationToken);
+        await sut.RepostVacatedPositionAsync(BoardSlot1, ct: TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         var vacancy = Assert.Single(uow.FakeVacancies.AddedEntities);
         Assert.Equal("BOARD_UNDERSTAFFED", vacancy.VacancyReasonCode);
@@ -294,12 +319,31 @@ public class VacancyRepostServiceTests
             boardAssignments: [MakeBoardAssignment(BoardSlot2, 2002)]);
         var sut = BuildService(uow);
 
-        await sut.RepostVacatedPositionAsync(BoardSlot1, ct: TestContext.Current.CancellationToken);
+        await sut.RepostVacatedPositionAsync(BoardSlot1, ct: TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
         Assert.DoesNotContain(board.Positions, p => p.StaffablePositionCtrlNbr == BoardSlot1);
         Assert.True(uow.Committed);
+    }
+
+    [Fact]
+    public async Task RepostVacatedPosition_BoardWithExistingOpenVacancy_DoesNotRepostOrRemoveSlot()
+    {
+        var board = MakeBoard(requiredPositions: 1, BoardSlot1, BoardSlot2);
+        var existing = PositionVacancy.Create(
+            WorkAreaCtrlNbr, StaffablePositionType.Board, BoardSlot1, CraftCtrlNbr, "BOARD_UNDERSTAFFED");
+        var uow = new FakeOrchestrationUnitOfWork(
+            bulletinRule: MakeRule(), roster: MakeRoster(), board: board,
+            existingVacancies: [existing],
+            boardAssignments: [MakeBoardAssignment(BoardSlot2, 2002)]);
+        var sut = BuildService(uow);
+
+        await sut.RepostVacatedPositionAsync(BoardSlot1, ct: TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
+
+        Assert.Empty(uow.FakeVacancies.AddedEntities);
+        Assert.Empty(uow.FakeBulletins.AddedEntities);
+        Assert.Contains(board.Positions, p => p.StaffablePositionCtrlNbr == BoardSlot1);
     }
 
     // ── RepostBoardPositionIfUnderstaffedAsync ────────────────────────────────
@@ -314,7 +358,7 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostBoardPositionIfUnderstaffedAsync(
-            board.CtrlNbr, BoardSlot1, ct: TestContext.Current.CancellationToken);
+            board.CtrlNbr, BoardSlot1, ct: TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         var vacancy = Assert.Single(uow.FakeVacancies.AddedEntities);
         Assert.Equal("BOARD_UNDERSTAFFED", vacancy.VacancyReasonCode);
@@ -333,7 +377,7 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostBoardPositionIfUnderstaffedAsync(
-            board.CtrlNbr, BoardSlot1, ct: TestContext.Current.CancellationToken);
+            board.CtrlNbr, BoardSlot1, ct: TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
     }
@@ -347,7 +391,7 @@ public class VacancyRepostServiceTests
         var sut = BuildService(uow);
 
         await sut.RepostBoardPositionIfUnderstaffedAsync(
-            ControlNumber.Create(999), BoardSlot1, ct: TestContext.Current.CancellationToken);
+            ControlNumber.Create(999), BoardSlot1, ct: TestContext.Current.CancellationToken, executeWorkflowTrigger: false);
 
         Assert.Empty(uow.FakeVacancies.AddedEntities);
         Assert.Empty(uow.FakeBulletins.AddedEntities);
@@ -512,10 +556,15 @@ public class VacancyRepostServiceTests
 
     private sealed class FakeVacancyRepo(IReadOnlyList<PositionVacancy>? existing) : FakeRepoBase<PositionVacancy>, IPositionVacancyRepository
     {
+        private readonly List<PositionVacancy> _existing = existing?.ToList() ?? [];
+
+        public override Task<PositionVacancy?> GetByCtrlNbrAsync(ControlNumber ctrlNbr, CancellationToken ct = default)
+            => Task.FromResult(_existing.Concat(AddedEntities).FirstOrDefault(v => v.CtrlNbr == ctrlNbr));
+
         public Task<List<PositionVacancy>> GetOpenAsync() => Task.FromResult(new List<PositionVacancy>());
         public Task<List<PositionVacancy>> GetOpenByRailroadAsync(ControlNumber r) => Task.FromResult(new List<PositionVacancy>());
         public Task<List<PositionVacancy>> GetByTargetAsync(string t, ControlNumber c)
-            => Task.FromResult((existing ?? []).Where(v => v.TargetType == t && v.TargetCtrlNbr == c).ToList());
+            => Task.FromResult(_existing.Concat(AddedEntities).Where(v => v.TargetType == t && v.TargetCtrlNbr == c).ToList());
         public Task<List<PositionVacancy>> GetByCraftAsync(ControlNumber c) => Task.FromResult(new List<PositionVacancy>());
         public Task<List<PositionVacancy>> GetByWorkAreaAsync(ControlNumber w) => Task.FromResult(new List<PositionVacancy>());
         public Task<double> GetAverageDailyBoardVacanciesAsync(ControlNumber w, ControlNumber c, CancellationToken ct = default) => Task.FromResult(0.0);

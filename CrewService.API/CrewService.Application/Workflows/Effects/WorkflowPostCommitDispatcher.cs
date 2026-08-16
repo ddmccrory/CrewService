@@ -30,7 +30,8 @@ public sealed class WorkflowPostCommitDispatcher(
                     await vacancyRepostService.RepostVacatedPositionAsync(
                         payload.StaffablePositionCtrlNbr,
                         payload.PreviousIncumbentCtrlNbr,
-                        ct);
+                        ct: ct,
+                        executeWorkflowTrigger: false);
                     break;
                 }
 
@@ -46,7 +47,9 @@ public sealed class WorkflowPostCommitDispatcher(
                         payload.BoardCtrlNbr,
                         payload.VacatedStaffablePositionCtrlNbr,
                         payload.PreviousIncumbentCtrlNbr,
-                        ct);
+                        ct: ct,
+                        executeWorkflowTrigger: false,
+                        enforceUnderstaffedPolicy: payload.EnforceUnderstaffedPolicy);
                     break;
                 }
 

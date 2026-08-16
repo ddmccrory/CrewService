@@ -22,7 +22,8 @@ public interface IVacancyRepostService
     Task RepostVacatedPositionAsync(
         ControlNumber staffablePositionCtrlNbr,
         ControlNumber? previousIncumbentCtrlNbr = null,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        bool executeWorkflowTrigger = true);
 
     /// <summary>
     /// Reposts a specific extra-board slot when the board's occupancy has fallen below its
@@ -33,7 +34,9 @@ public interface IVacancyRepostService
         ControlNumber boardCtrlNbr,
         ControlNumber vacatedStaffablePositionCtrlNbr,
         ControlNumber? previousIncumbentCtrlNbr = null,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        bool executeWorkflowTrigger = true,
+        bool enforceUnderstaffedPolicy = true);
 
     /// <summary>
     /// Durable reconciliation sweep. Finds vacant positions that were not reposted inline

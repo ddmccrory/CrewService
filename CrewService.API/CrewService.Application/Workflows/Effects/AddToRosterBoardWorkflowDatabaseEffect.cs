@@ -17,12 +17,19 @@ public sealed class AddToRosterBoardWorkflowDatabaseEffect(
     public async Task<IReadOnlyList<WorkflowEffectPostCommitWorkItem>> ExecuteAsync(WorkflowEffectExecutionContext context)
     {
         var runtime = context.RuntimeContext;
-        if (runtime.EmployeeCtrlNbr is null || runtime.RosterCtrlNbr is null)
+        if (runtime.EmployeeCtrlNbr is null)
             return [];
 
         var boardType = ResolveBoardType(context.Effect);
         var employeeCtrlNbr = runtime.EmployeeCtrlNbr;
         var rosterCtrlNbr = runtime.RosterCtrlNbr;
+        if (rosterCtrlNbr is null)
+        {
+            logger.LogInformation(
+                "WorkflowRuntimeService: Skipping Add to Roster Board effect because roster context is missing for employee {EmployeeCtrlNbr}.",
+                employeeCtrlNbr.Value);
+            return [];
+        }
 
         var roster = await context.Uow.Rosters.GetByCtrlNbrAsync(rosterCtrlNbr, context.CancellationToken);
         if (roster?.CraftCtrlNbr is null)
